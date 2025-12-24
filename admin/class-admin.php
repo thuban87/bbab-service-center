@@ -51,8 +51,96 @@ class Admin {
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
 
+        // Filter admin list queries for our custom filter parameters.
+        add_action( 'pre_get_posts', array( $this, 'filter_admin_list_queries' ) );
+
         // Register workbench hooks.
         $this->workbench->register_hooks();
+    }
+
+    /**
+     * Filter admin list queries based on our custom parameters.
+     *
+     * Handles bbab_project_id and bbab_sr_id query parameters to filter
+     * milestones and time entries in the admin list.
+     *
+     * @since 1.0.0
+     * @param \WP_Query $query The query object.
+     * @return void
+     */
+    public function filter_admin_list_queries( $query ) {
+        // Only run on admin, main query.
+        if ( ! is_admin() || ! $query->is_main_query() ) {
+            return;
+        }
+
+        $post_type = $query->get( 'post_type' );
+
+        // Filter milestones by project.
+        if ( 'milestone' === $post_type && ! empty( $_GET['bbab_project_id'] ) ) {
+            $project_id = absint( $_GET['bbab_project_id'] );
+
+            $meta_query = $query->get( 'meta_query' ) ?: array();
+            $meta_query[] = array(
+                'key'     => 'related_project',
+                'value'   => $project_id,
+                'compare' => '=',
+            );
+            $query->set( 'meta_query', $meta_query );
+        }
+
+        // Filter time entries by service request.
+        if ( 'time_entry' === $post_type && ! empty( $_GET['bbab_sr_id'] ) ) {
+            $sr_id = absint( $_GET['bbab_sr_id'] );
+
+            $meta_query = $query->get( 'meta_query' ) ?: array();
+            $meta_query[] = array(
+                'key'     => 'related_service_request',
+                'value'   => $sr_id,
+                'compare' => '=',
+            );
+            $query->set( 'meta_query', $meta_query );
+        }
+
+        // Filter time entries by project (includes direct project TEs and milestone TEs).
+        if ( 'time_entry' === $post_type && ! empty( $_GET['bbab_project_id'] ) ) {
+            $project_id = absint( $_GET['bbab_project_id'] );
+
+            // Get milestone IDs for this project.
+            $milestones = get_posts( array(
+                'post_type'      => 'milestone',
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'fields'         => 'ids',
+                'meta_query'     => array(
+                    array(
+                        'key'     => 'related_project',
+                        'value'   => $project_id,
+                        'compare' => '=',
+                    ),
+                ),
+            ) );
+
+            // Build OR query: TEs linked to project OR linked to any milestone of project.
+            $meta_query = array(
+                'relation' => 'OR',
+                array(
+                    'key'     => 'related_project',
+                    'value'   => $project_id,
+                    'compare' => '=',
+                ),
+            );
+
+            if ( ! empty( $milestones ) ) {
+                $meta_query[] = array(
+                    'key'     => 'related_milestone',
+                    'value'   => $milestones,
+                    'compare' => 'IN',
+                );
+            }
+
+            $query->set( 'meta_query', $meta_query );
+        }
     }
 
     /**

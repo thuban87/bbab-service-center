@@ -35,6 +35,7 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 20px;
+    align-items: start; /* Each box sizes to its own content */
 }
 
 /* 2 columns on medium screens */
@@ -151,6 +152,16 @@
     white-space: nowrap;
 }
 
+.bbab-item-ref a {
+    color: #2271b1;
+    text-decoration: none;
+}
+
+.bbab-item-ref a:hover {
+    color: #135e96;
+    text-decoration: underline;
+}
+
 .bbab-item-title {
     flex: 1;
     font-weight: 500;
@@ -185,6 +196,45 @@
     gap: 8px;
     font-size: 12px;
     color: #787c82;
+}
+
+.bbab-item-meta .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    vertical-align: middle;
+    margin-right: 2px;
+}
+
+.bbab-te-count,
+.bbab-milestone-count,
+.bbab-due-date {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+a.bbab-te-count,
+a.bbab-milestone-count {
+    color: #787c82;
+    text-decoration: none;
+    padding: 2px 4px;
+    border-radius: 3px;
+    transition: background-color 0.15s ease;
+}
+
+a.bbab-te-count:hover,
+a.bbab-milestone-count:hover {
+    background: #f0f0f1;
+    color: #2271b1;
+}
+
+.bbab-due-date {
+    font-size: 11px;
+}
+
+.bbab-item-amount {
+    font-weight: 600;
 }
 
 /* ==========================================================================
