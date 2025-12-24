@@ -1,0 +1,315 @@
+/**
+ * Brad's Workbench Admin Styles
+ *
+ * @package BBAB\Core
+ * @since   1.0.0
+ */
+
+/* ==========================================================================
+   Layout: CSS Grid for Dashboard Boxes
+   ========================================================================== */
+
+.bbab-workbench-wrap {
+    max-width: 1400px;
+    margin: 20px 20px 20px 0;
+}
+
+.bbab-workbench-header {
+    margin-bottom: 20px;
+}
+
+.bbab-workbench-header h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.bbab-workbench-header .dashicons {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+}
+
+/* Main grid layout - 3 columns on large screens */
+.bbab-workbench-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+/* 2 columns on medium screens */
+@media screen and (max-width: 1200px) {
+    .bbab-workbench-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* 1 column on small screens */
+@media screen and (max-width: 782px) {
+    .bbab-workbench-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .bbab-workbench-wrap {
+        margin-right: 10px;
+    }
+}
+
+/* ==========================================================================
+   Dashboard Boxes
+   ========================================================================== */
+
+.bbab-box {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.bbab-box-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    border-bottom: 1px solid #c3c4c7;
+    background: #f6f7f7;
+}
+
+.bbab-box-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1d2327;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bbab-box-title .dashicons {
+    color: #50575e;
+}
+
+.bbab-box-count {
+    background: #2271b1;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    min-width: 20px;
+    text-align: center;
+}
+
+.bbab-box-count.count-zero {
+    background: #c3c4c7;
+}
+
+.bbab-box-content {
+    padding: 0;
+}
+
+.bbab-box-footer {
+    padding: 10px 15px;
+    border-top: 1px solid #c3c4c7;
+    background: #f6f7f7;
+    text-align: right;
+}
+
+.bbab-box-footer .button {
+    margin: 0;
+}
+
+/* ==========================================================================
+   Item Lists
+   ========================================================================== */
+
+.bbab-item-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.bbab-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #f0f0f1;
+    gap: 10px;
+}
+
+.bbab-item:last-child {
+    border-bottom: none;
+}
+
+.bbab-item:hover {
+    background: #f6f7f7;
+}
+
+.bbab-item-ref {
+    font-family: monospace;
+    font-size: 12px;
+    color: #50575e;
+    white-space: nowrap;
+}
+
+.bbab-item-title {
+    flex: 1;
+    font-weight: 500;
+    color: #1d2327;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bbab-item-title a {
+    color: #2271b1;
+    text-decoration: none;
+}
+
+.bbab-item-title a:hover {
+    color: #135e96;
+    text-decoration: underline;
+}
+
+.bbab-item-org {
+    font-size: 11px;
+    color: #787c82;
+    background: #f0f0f1;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.bbab-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #787c82;
+}
+
+/* ==========================================================================
+   Status Badges
+   ========================================================================== */
+
+.bbab-status-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 3px;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* Service Request Statuses */
+.bbab-status-badge.status-new {
+    background: #d63638;
+    color: #fff;
+}
+
+.bbab-status-badge.status-acknowledged {
+    background: #dba617;
+    color: #fff;
+}
+
+.bbab-status-badge.status-in-progress,
+.bbab-status-badge.status-active {
+    background: #00a32a;
+    color: #fff;
+}
+
+.bbab-status-badge.status-waiting-on-client {
+    background: #72aee6;
+    color: #fff;
+}
+
+.bbab-status-badge.status-on-hold {
+    background: #787c82;
+    color: #fff;
+}
+
+.bbab-status-badge.status-completed,
+.bbab-status-badge.status-paid {
+    background: #4ab866;
+    color: #fff;
+}
+
+.bbab-status-badge.status-cancelled {
+    background: #c3c4c7;
+    color: #50575e;
+}
+
+/* Invoice Statuses */
+.bbab-status-badge.status-draft {
+    background: #c3c4c7;
+    color: #50575e;
+}
+
+.bbab-status-badge.status-pending {
+    background: #dba617;
+    color: #fff;
+}
+
+.bbab-status-badge.status-partial {
+    background: #72aee6;
+    color: #fff;
+}
+
+.bbab-status-badge.status-overdue {
+    background: #d63638;
+    color: #fff;
+}
+
+/* ==========================================================================
+   Empty State
+   ========================================================================== */
+
+.bbab-empty-state {
+    padding: 30px 15px;
+    text-align: center;
+    color: #787c82;
+}
+
+.bbab-empty-state .dashicons {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 10px;
+    color: #c3c4c7;
+}
+
+.bbab-empty-state p {
+    margin: 0;
+    font-size: 13px;
+}
+
+/* ==========================================================================
+   Loading State
+   ========================================================================== */
+
+.bbab-loading {
+    padding: 30px 15px;
+    text-align: center;
+}
+
+.bbab-loading .spinner {
+    float: none;
+    margin: 0 auto 10px;
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.bbab-text-muted {
+    color: #787c82;
+}
+
+.bbab-text-small {
+    font-size: 12px;
+}
+
+.bbab-mt-0 { margin-top: 0; }
+.bbab-mb-0 { margin-bottom: 0; }
+.bbab-ml-auto { margin-left: auto; }

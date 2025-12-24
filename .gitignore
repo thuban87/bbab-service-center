@@ -1,0 +1,40 @@
+# IDE and Editor files
+.vscode/
+*.code-workspace
+.idea/
+*.sublime-*
+
+# Verbose Docs
+Documentation/
+CLAUDE.md
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Node (if we ever add build tools)
+node_modules/
+package-lock.json
+
+# Composer (if we ever add it)
+vendor/
+composer.lock
+
+# Debug/logs
+*.log
+debug.log
+
+# Local environment files
+.env
+.env.local
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Build artifacts
+/dist/
+/build/
