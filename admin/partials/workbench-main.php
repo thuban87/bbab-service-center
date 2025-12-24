@@ -85,9 +85,15 @@ if ( ! defined( 'WPINC' ) ) {
                     </ul>
                 <?php endif; ?>
             </div>
-            <div class="bbab-box-footer">
+            <div class="bbab-box-footer bbab-box-footer-3">
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=bbab-requests' ) ); ?>" class="button button-primary">
+                    <?php esc_html_e( 'Requests Hub', 'bbab-core' ); ?>
+                </a>
                 <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=service_request' ) ); ?>" class="button">
-                    <?php esc_html_e( 'View All', 'bbab-core' ); ?>
+                    <?php esc_html_e( 'WP List', 'bbab-core' ); ?>
+                </a>
+                <a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=service_request' ) ); ?>" class="button">
+                    <span class="dashicons dashicons-plus-alt2"></span>
                 </a>
             </div>
         </div>
@@ -152,9 +158,15 @@ if ( ! defined( 'WPINC' ) ) {
                     </ul>
                 <?php endif; ?>
             </div>
-            <div class="bbab-box-footer">
+            <div class="bbab-box-footer bbab-box-footer-3">
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=bbab-projects' ) ); ?>" class="button button-primary">
+                    <?php esc_html_e( 'Projects Hub', 'bbab-core' ); ?>
+                </a>
                 <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=project' ) ); ?>" class="button">
-                    <?php esc_html_e( 'View All', 'bbab-core' ); ?>
+                    <?php esc_html_e( 'WP List', 'bbab-core' ); ?>
+                </a>
+                <a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=project' ) ); ?>" class="button">
+                    <span class="dashicons dashicons-plus-alt2"></span>
                 </a>
             </div>
         </div>
@@ -224,9 +236,15 @@ if ( ! defined( 'WPINC' ) ) {
                     </ul>
                 <?php endif; ?>
             </div>
-            <div class="bbab-box-footer">
+            <div class="bbab-box-footer bbab-box-footer-3">
+                <a href="<?php echo esc_url( admin_url( 'admin.php?page=bbab-invoices' ) ); ?>" class="button button-primary">
+                    <?php esc_html_e( 'Invoices Hub', 'bbab-core' ); ?>
+                </a>
                 <a href="<?php echo esc_url( admin_url( 'edit.php?post_type=invoice' ) ); ?>" class="button">
-                    <?php esc_html_e( 'View All', 'bbab-core' ); ?>
+                    <?php esc_html_e( 'WP List', 'bbab-core' ); ?>
+                </a>
+                <a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=invoice' ) ); ?>" class="button">
+                    <span class="dashicons dashicons-plus-alt2"></span>
                 </a>
             </div>
         </div>

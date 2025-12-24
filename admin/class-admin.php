@@ -141,6 +141,46 @@ class Admin {
 
             $query->set( 'meta_query', $meta_query );
         }
+
+        // Filter invoices by project (includes direct project invoices and milestone invoices).
+        if ( 'invoice' === $post_type && ! empty( $_GET['bbab_project_id'] ) ) {
+            $project_id = absint( $_GET['bbab_project_id'] );
+
+            // Get milestone IDs for this project.
+            $milestones = get_posts( array(
+                'post_type'      => 'milestone',
+                'post_status'    => 'publish',
+                'posts_per_page' => -1,
+                'fields'         => 'ids',
+                'meta_query'     => array(
+                    array(
+                        'key'     => 'related_project',
+                        'value'   => $project_id,
+                        'compare' => '=',
+                    ),
+                ),
+            ) );
+
+            // Build OR query: Invoices linked to project OR linked to any milestone of project.
+            $meta_query = array(
+                'relation' => 'OR',
+                array(
+                    'key'     => 'related_project',
+                    'value'   => $project_id,
+                    'compare' => '=',
+                ),
+            );
+
+            if ( ! empty( $milestones ) ) {
+                $meta_query[] = array(
+                    'key'     => 'related_milestone',
+                    'value'   => $milestones,
+                    'compare' => 'IN',
+                );
+            }
+
+            $query->set( 'meta_query', $meta_query );
+        }
     }
 
     /**
@@ -211,6 +251,13 @@ class Admin {
             'brads-workbench_page_bbab-invoices',
         );
 
-        return in_array( $hook_suffix, $plugin_pages, true );
+        // Also check for alternate hook suffix format.
+        $alt_pages = array(
+            'brad-s-workbench_page_bbab-projects',
+            'brad-s-workbench_page_bbab-requests',
+            'brad-s-workbench_page_bbab-invoices',
+        );
+
+        return in_array( $hook_suffix, $plugin_pages, true ) || in_array( $hook_suffix, $alt_pages, true );
     }
 }

@@ -30,6 +30,27 @@ class Workbench {
     private $cache;
 
     /**
+     * Projects sub-page instance.
+     *
+     * @var Workbench_Projects
+     */
+    private $projects_page;
+
+    /**
+     * Requests sub-page instance.
+     *
+     * @var Workbench_Requests
+     */
+    private $requests_page;
+
+    /**
+     * Invoices sub-page instance.
+     *
+     * @var Workbench_Invoices
+     */
+    private $invoices_page;
+
+    /**
      * Status sort order for Service Requests.
      * Lower number = higher priority in display.
      *
@@ -72,7 +93,10 @@ class Workbench {
      * @since 1.0.0
      */
     public function __construct() {
-        $this->cache = new Cache();
+        $this->cache         = new Cache();
+        $this->projects_page = new Workbench_Projects();
+        $this->requests_page = new Workbench_Requests();
+        $this->invoices_page = new Workbench_Invoices();
     }
 
     /**
@@ -103,11 +127,45 @@ class Workbench {
             2 // Position: right below Dashboard.
         );
 
-        // Sub-pages will be added in Phase 3.
-        // Placeholder comments for future sub-pages:
-        // - Projects (bbab-projects)
-        // - Service Requests (bbab-requests)
-        // - Invoices (bbab-invoices)
+        // Rename the auto-created submenu item.
+        add_submenu_page(
+            'bbab-workbench',
+            __( "Brad's Workbench", 'bbab-core' ),
+            __( 'Dashboard', 'bbab-core' ),
+            'manage_options',
+            'bbab-workbench',
+            array( $this, 'render_main_page' )
+        );
+
+        // Projects sub-page.
+        add_submenu_page(
+            'bbab-workbench',
+            __( 'Projects', 'bbab-core' ),
+            __( 'Projects', 'bbab-core' ),
+            'manage_options',
+            'bbab-projects',
+            array( $this->projects_page, 'render_page' )
+        );
+
+        // Service Requests sub-page.
+        add_submenu_page(
+            'bbab-workbench',
+            __( 'Service Requests', 'bbab-core' ),
+            __( 'Service Requests', 'bbab-core' ),
+            'manage_options',
+            'bbab-requests',
+            array( $this->requests_page, 'render_page' )
+        );
+
+        // Invoices sub-page.
+        add_submenu_page(
+            'bbab-workbench',
+            __( 'Invoices', 'bbab-core' ),
+            __( 'Invoices', 'bbab-core' ),
+            'manage_options',
+            'bbab-invoices',
+            array( $this->invoices_page, 'render_page' )
+        );
     }
 
     /**
