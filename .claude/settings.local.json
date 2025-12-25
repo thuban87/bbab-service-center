@@ -4,7 +4,8 @@
       "Bash(mkdir:*)",
       "Bash(composer dump-autoload:*)",
       "Bash(php -l:*)",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(findstr:*)"
     ]
   }
 }
