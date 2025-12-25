@@ -1,0 +1,63 @@
+/**
+ * BBAB Service Center - Admin Workbench Styles
+ *
+ * Additional styles for Brad's Workbench admin pages
+ * Note: Most styles are inline in WorkbenchPage.php for simplicity
+ */
+
+/* Workbench specific enhancements */
+.bbab-workbench .bbab-workbench-box:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.bbab-workbench .bbab-workbench-table tr:hover {
+    background: #f9fafb;
+}
+
+/* Simulation box enhancements */
+.bbab-simulation-box {
+    transition: all 0.3s ease;
+}
+
+.bbab-simulation-box:hover {
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Quick action buttons */
+.bbab-quick-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+}
+
+.bbab-quick-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    color: #374151;
+    text-decoration: none;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.bbab-quick-action:hover {
+    background: #e5e7eb;
+    color: #1f2937;
+}
+
+/* Count badges in headers */
+.bbab-count-badge {
+    display: inline-block;
+    background: #667eea;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    margin-left: 8px;
+}

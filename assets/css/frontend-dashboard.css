@@ -1,0 +1,175 @@
+/**
+ * BBAB Service Center - Frontend Dashboard Styles
+ *
+ * Styles for client-facing dashboard shortcodes
+ */
+
+/* Base notice styles */
+.bbab-notice {
+    padding: 15px 20px;
+    border-radius: 4px;
+    margin: 10px 0;
+}
+
+.bbab-notice-info {
+    background: #eff6ff;
+    border: 1px solid #93c5fd;
+    color: #1e40af;
+}
+
+.bbab-notice-warning {
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+}
+
+.bbab-notice-error {
+    background: #fef2f2;
+    border: 1px solid #fca5a5;
+    color: #991b1b;
+}
+
+.bbab-notice-success {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    color: #166534;
+}
+
+/* Dashboard card styles */
+.bbab-dashboard-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.bbab-dashboard-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.bbab-dashboard-card-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+.bbab-dashboard-card-content {
+    color: #4b5563;
+}
+
+/* Progress bar */
+.bbab-progress-bar {
+    background: #e5e7eb;
+    border-radius: 9999px;
+    height: 8px;
+    overflow: hidden;
+    margin: 10px 0;
+}
+
+.bbab-progress-bar-fill {
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 0.3s ease;
+}
+
+/* Table styles */
+.bbab-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.bbab-table th,
+.bbab-table td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.bbab-table th {
+    font-weight: 600;
+    color: #374151;
+    background: #f9fafb;
+}
+
+.bbab-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Status badges */
+.bbab-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.bbab-badge-success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.bbab-badge-warning {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.bbab-badge-error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.bbab-badge-info {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.bbab-badge-gray {
+    background: #e5e7eb;
+    color: #4b5563;
+}
+
+/* Empty state */
+.bbab-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7280;
+}
+
+.bbab-empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+
+/* Loading spinner */
+.bbab-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+.bbab-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e5e7eb;
+    border-top-color: #667eea;
+    border-radius: 50%;
+    animation: bbab-spin 0.8s linear infinite;
+}
+
+@keyframes bbab-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

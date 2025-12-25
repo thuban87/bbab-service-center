@@ -1,0 +1,117 @@
+<?php
+declare(strict_types=1);
+
+namespace BBAB\ServiceCenter\Frontend;
+
+use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\Overview;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\MonthProgress;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\RecentEntries;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\ActionItems;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\Billing;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\ActiveProjects;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\ServiceRequests;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\Roadmap;
+use BBAB\ServiceCenter\Utils\Logger;
+
+/**
+ * Registers all frontend functionality.
+ *
+ * - Shortcodes
+ * - Simulation bar
+ * - Frontend assets (CSS/JS)
+ */
+class FrontendLoader {
+
+    /**
+     * Shortcode instances.
+     *
+     * @var array
+     */
+    private array $shortcodes = [];
+
+    /**
+     * Simulation bar instance.
+     */
+    private SimulationBar $simulation_bar;
+
+    /**
+     * Register all frontend hooks.
+     */
+    public function register(): void {
+        // Initialize simulation bar
+        $this->simulation_bar = new SimulationBar();
+        $this->simulation_bar->register();
+
+        // Register shortcodes
+        $this->registerShortcodes();
+
+        // Register assets
+        add_action('wp_enqueue_scripts', [$this, 'enqueueAssets']);
+
+        Logger::debug('FrontendLoader', 'Frontend loader initialized');
+    }
+
+    /**
+     * Register all shortcodes.
+     */
+    private function registerShortcodes(): void {
+        // Dashboard shortcodes
+        $shortcode_classes = [
+            Overview::class,
+            MonthProgress::class,
+            RecentEntries::class,
+            ActionItems::class,
+            Billing::class,
+            ActiveProjects::class,
+            ServiceRequests::class,
+            Roadmap::class,
+        ];
+
+        foreach ($shortcode_classes as $class) {
+            if (class_exists($class)) {
+                $shortcode = new $class();
+                $shortcode->register();
+                $this->shortcodes[$shortcode->getTag()] = $shortcode;
+            }
+        }
+
+        Logger::debug('FrontendLoader', 'Registered ' . count($this->shortcodes) . ' shortcodes');
+    }
+
+    /**
+     * Enqueue frontend assets.
+     */
+    public function enqueueAssets(): void {
+        // Only load on pages that might use our shortcodes
+        // For now, load on all frontend pages - can optimize later
+
+        wp_enqueue_style(
+            'bbab-sc-frontend',
+            BBAB_SC_URL . 'assets/css/frontend-dashboard.css',
+            [],
+            BBAB_SC_VERSION
+        );
+
+        wp_enqueue_script(
+            'bbab-sc-frontend',
+            BBAB_SC_URL . 'assets/js/frontend-dashboard.js',
+            ['jquery'],
+            BBAB_SC_VERSION,
+            true
+        );
+
+        // Localize script with AJAX data
+        wp_localize_script('bbab-sc-frontend', 'bbabScAjax', [
+            'url' => admin_url('admin-ajax.php'),
+            'nonce' => wp_create_nonce('bbab_sc_ajax_nonce'),
+            'action' => 'bbab_sc_ajax',
+        ]);
+    }
+
+    /**
+     * Get a registered shortcode instance by tag.
+     */
+    public function getShortcode(string $tag) {
+        return $this->shortcodes[$tag] ?? null;
+    }
+}

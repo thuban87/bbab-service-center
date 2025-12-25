@@ -171,4 +171,70 @@ class SimulationBootstrap {
     public static function getCurrentSimulatedOrgId(): ?int {
         return self::getSimulatedOrgFromCookie();
     }
+
+    /**
+     * Handle simulation exit request from URL.
+     * Call this on 'init' hook.
+     */
+    public static function handleExitRequest(): void {
+        // Check for exit request
+        if (!isset($_GET['bbab_sc_exit_simulation'])) {
+            return;
+        }
+
+        // Verify nonce
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'bbab_sc_simulation')) {
+            return;
+        }
+
+        // Must be admin
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        // Clear the simulation
+        self::clearSimulation();
+
+        // Redirect to remove query args
+        $redirect = remove_query_arg(['bbab_sc_exit_simulation', '_wpnonce']);
+        wp_safe_redirect($redirect);
+        exit;
+    }
+
+    /**
+     * Handle simulation start request from URL.
+     * Call this on 'init' hook.
+     */
+    public static function handleStartRequest(): void {
+        // Check for start request
+        if (!isset($_GET['bbab_sc_simulate_org'])) {
+            return;
+        }
+
+        // Verify nonce
+        if (!isset($_GET['_wpnonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_GET['_wpnonce'])), 'bbab_sc_simulation')) {
+            return;
+        }
+
+        // Must be admin
+        if (!current_user_can('manage_options')) {
+            return;
+        }
+
+        $org_id = absint($_GET['bbab_sc_simulate_org']);
+
+        // Verify org exists
+        $org = get_post($org_id);
+        if (!$org || $org->post_type !== 'client_organization') {
+            return;
+        }
+
+        // Set simulation
+        self::setSimulation($org_id);
+
+        // Redirect to remove query args
+        $redirect = remove_query_arg(['bbab_sc_simulate_org', '_wpnonce']);
+        wp_safe_redirect($redirect);
+        exit;
+    }
 }

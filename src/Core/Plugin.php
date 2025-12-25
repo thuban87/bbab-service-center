@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace BBAB\ServiceCenter\Core;
 
+use BBAB\ServiceCenter\Admin\AdminLoader;
+use BBAB\ServiceCenter\Frontend\FrontendLoader;
 use BBAB\ServiceCenter\Utils\Logger;
 
 /**
@@ -18,6 +20,16 @@ class Plugin {
     private AjaxRouter $ajax_router;
 
     /**
+     * The admin loader instance.
+     */
+    private ?AdminLoader $admin_loader = null;
+
+    /**
+     * The frontend loader instance.
+     */
+    private ?FrontendLoader $frontend_loader = null;
+
+    /**
      * Initialize the plugin.
      */
     public function __construct() {
@@ -30,6 +42,10 @@ class Plugin {
      * This is called on plugins_loaded with priority 10 (after SimulationBootstrap).
      */
     public function run(): void {
+        // Handle simulation start/exit requests on init
+        add_action('init', [SimulationBootstrap::class, 'handleExitRequest']);
+        add_action('init', [SimulationBootstrap::class, 'handleStartRequest']);
+
         // Register AJAX router
         $this->ajax_router->register();
 
@@ -57,24 +73,16 @@ class Plugin {
      * Load admin functionality.
      */
     private function loadAdmin(): void {
-        // Admin loader will be created in Phase 1
-        // For now, this is a placeholder
-
-        // TODO: Initialize AdminLoader
-        // $admin_loader = new \BBAB\ServiceCenter\Admin\AdminLoader();
-        // $admin_loader->register();
+        $this->admin_loader = new AdminLoader();
+        $this->admin_loader->register();
     }
 
     /**
      * Load frontend functionality.
      */
     private function loadFrontend(): void {
-        // Frontend loader will be created in Phase 1
-        // For now, this is a placeholder
-
-        // TODO: Initialize FrontendLoader
-        // $frontend_loader = new \BBAB\ServiceCenter\Frontend\FrontendLoader();
-        // $frontend_loader->register();
+        $this->frontend_loader = new FrontendLoader();
+        $this->frontend_loader->register();
     }
 
     /**
@@ -94,5 +102,19 @@ class Plugin {
      */
     public function getAjaxRouter(): AjaxRouter {
         return $this->ajax_router;
+    }
+
+    /**
+     * Get the admin loader instance.
+     */
+    public function getAdminLoader(): ?AdminLoader {
+        return $this->admin_loader;
+    }
+
+    /**
+     * Get the frontend loader instance.
+     */
+    public function getFrontendLoader(): ?FrontendLoader {
+        return $this->frontend_loader;
     }
 }
