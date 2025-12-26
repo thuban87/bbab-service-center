@@ -5,6 +5,10 @@ namespace BBAB\ServiceCenter\Cron;
 
 use BBAB\ServiceCenter\Modules\Analytics\GA4Service;
 use BBAB\ServiceCenter\Modules\Analytics\PageSpeedService;
+use BBAB\ServiceCenter\Modules\Hosting\UptimeService;
+use BBAB\ServiceCenter\Modules\Hosting\SSLService;
+use BBAB\ServiceCenter\Modules\Hosting\BackupService;
+use BBAB\ServiceCenter\Utils\Cache;
 use BBAB\ServiceCenter\Utils\Logger;
 
 /**
@@ -25,8 +29,8 @@ class CronLoader {
         // Analytics worker - processes ONE org at a time
         add_action('bbab_sc_analytics_worker', [$this, 'processOrgAnalytics']);
 
-        // Hosting health cron (placeholder for Phase 3)
-        add_action('bbab_sc_hosting_cron', [$this, 'runHostingHealthChecks']);
+        // Hosting health - runs at scheduled time, processes all orgs inline
+        add_action('bbab_sc_hosting_cron', [$this, 'dispatchHostingHealthJobs']);
 
         // Cleanup cron
         add_action('bbab_sc_cleanup_cron', [$this, 'runCleanup']);
@@ -188,11 +192,137 @@ class CronLoader {
     }
 
     /**
-     * Run hosting health checks (Phase 3 placeholder).
+     * Run hosting health checks for all organizations.
+     *
+     * Unlike analytics (which uses staggered Action Scheduler due to slow PageSpeed API),
+     * hosting health checks are fast enough to run all orgs in sequence.
+     */
+    public function dispatchHostingHealthJobs(): void {
+        $orgs = get_posts([
+            'post_type' => 'client_organization',
+            'posts_per_page' => -1,
+            'post_status' => 'publish',
+        ]);
+
+        if (empty($orgs)) {
+            Logger::debug('CronLoader', 'Hosting health: No organizations found');
+            return;
+        }
+
+        $processed_count = 0;
+
+        foreach ($orgs as $index => $org) {
+            // Small delay between orgs to be nice to external APIs
+            if ($index > 0) {
+                usleep(500000); // 0.5 second
+            }
+
+            $this->processOrgHostingHealth($org->ID);
+            $processed_count++;
+        }
+
+        Logger::debug('CronLoader', "Hosting health: Processed $processed_count orgs");
+    }
+
+    /**
+     * Process hosting health for a single organization.
+     *
+     * Called by Action Scheduler (one org at a time) or inline fallback.
+     * Fetches uptime, SSL, and backup data, then stores combined result.
+     *
+     * @param int $org_id Organization post ID
+     */
+    public function processOrgHostingHealth(int $org_id): void {
+        $org = get_post($org_id);
+
+        if (!$org) {
+            Logger::error('CronLoader', "Hosting health worker: Org ID $org_id not found");
+            return;
+        }
+
+        $org_name = $org->post_title;
+        Logger::debug('CronLoader', "Hosting health worker: Starting $org_name (ID: $org_id)");
+
+        $results = [
+            'org' => $org_name,
+            'uptime' => 'skip',
+            'ssl' => 'skip',
+            'backup' => 'skip',
+        ];
+
+        // Get field values to check what's configured
+        $has_uptime = !empty(get_post_meta($org_id, 'uptimerobot_monitor_id', true));
+        $has_ssl = !empty(get_post_meta($org_id, 'site_url', true));
+        $has_backup = !empty(get_post_meta($org_id, 'backup_folder_id', true)) &&
+                      !empty(get_post_meta($org_id, 'backup_filename_match', true));
+
+        // Initialize health data array
+        $health_data = [
+            'org_id' => $org_id,
+            'org_name' => $org_name,
+            'generated_at' => time(), // Unix timestamp for proper timezone handling
+            'uptime' => null,
+            'ssl' => null,
+            'backup' => null,
+        ];
+
+        // ---- UPTIME DATA ----
+        if ($has_uptime) {
+            try {
+                $uptime_data = UptimeService::fetchData($org_id);
+                $health_data['uptime'] = $uptime_data;
+                $results['uptime'] = ($uptime_data && !isset($uptime_data['error'])) ? 'ok' : 'error';
+            } catch (\Exception $e) {
+                $results['uptime'] = 'error';
+                $health_data['uptime'] = ['error' => $e->getMessage()];
+                Logger::error('CronLoader', "Uptime fetch failed for $org_name: " . $e->getMessage());
+            }
+
+            usleep(300000); // 0.3s delay between API calls
+        }
+
+        // ---- SSL DATA ----
+        if ($has_ssl) {
+            try {
+                $ssl_data = SSLService::fetchData($org_id);
+                $health_data['ssl'] = $ssl_data;
+                $results['ssl'] = ($ssl_data && !isset($ssl_data['error'])) ? 'ok' : 'error';
+            } catch (\Exception $e) {
+                $results['ssl'] = 'error';
+                $health_data['ssl'] = ['error' => $e->getMessage()];
+                Logger::error('CronLoader', "SSL check failed for $org_name: " . $e->getMessage());
+            }
+
+            usleep(300000); // 0.3s delay
+        }
+
+        // ---- BACKUP DATA ----
+        if ($has_backup) {
+            try {
+                $backup_data = BackupService::fetchData($org_id);
+                $health_data['backup'] = $backup_data;
+                $results['backup'] = ($backup_data && !isset($backup_data['error'])) ? 'ok' : 'error';
+            } catch (\Exception $e) {
+                $results['backup'] = 'error';
+                $health_data['backup'] = ['error' => $e->getMessage()];
+                Logger::error('CronLoader', "Backup check failed for $org_name: " . $e->getMessage());
+            }
+        }
+
+        // Store combined health data in a single cache key
+        // Using 36 hour expiry as safety net in case cron fails one day
+        Cache::set('health_data_' . $org_id, $health_data, 36 * HOUR_IN_SECONDS);
+
+        Logger::debug('CronLoader', "Hosting health worker: Completed $org_name - " . wp_json_encode($results));
+    }
+
+    /**
+     * Run hosting health checks for all organizations.
+     *
+     * Legacy method - calls dispatchHostingHealthJobs for backwards compatibility.
      */
     public function runHostingHealthChecks(): void {
-        Logger::debug('CronLoader', 'Hosting health cron: Not yet implemented');
-        // TODO: Implement in Phase 3
+        $this->dispatchHostingHealthJobs();
     }
 
     /**

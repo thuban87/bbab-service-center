@@ -7,6 +7,7 @@ use BBAB\ServiceCenter\Utils\Cache;
 use BBAB\ServiceCenter\Utils\Logger;
 use BBAB\ServiceCenter\Modules\Analytics\GA4Service;
 use BBAB\ServiceCenter\Modules\Analytics\PageSpeedService;
+use BBAB\ServiceCenter\Cron\CronLoader;
 
 /**
  * Client Health Dashboard Admin Page.
@@ -16,8 +17,8 @@ use BBAB\ServiceCenter\Modules\Analytics\PageSpeedService;
  *
  * Migrated from: WPCode Snippet #2310
  *
- * Note: Section 1 (Hosting Health) requires Phase 3 hosting services.
- * Until then, it will show "Pending Phase 3 migration" message.
+ * Section 1 uses the Hosting module services (UptimeService, SSLService, BackupService)
+ * Section 2 checks client configuration and Analytics cache status
  */
 class ClientHealthDashboard {
 
@@ -46,16 +47,13 @@ class ClientHealthDashboard {
      * Render the admin page.
      */
     public function renderPage(): void {
-        // Handle manual run (Section 1 only) - requires Phase 3
+        // Handle manual run (Section 1 only)
         if (isset($_POST['run_health_check']) && check_admin_referer('bbab_run_health_check')) {
-            if (function_exists('bbab_run_hosting_health_checks')) {
-                $start = microtime(true);
-                bbab_run_hosting_health_checks();
-                $elapsed = round(microtime(true) - $start, 2);
-                echo '<div class="notice notice-success"><p>Hosting health check completed in ' . esc_html($elapsed) . ' seconds!</p></div>';
-            } else {
-                echo '<div class="notice notice-warning"><p>Hosting health checks not yet available. Requires Phase 3 migration.</p></div>';
-            }
+            $start = microtime(true);
+            $cron_loader = new CronLoader();
+            $cron_loader->runHostingHealthChecks();
+            $elapsed = round(microtime(true) - $start, 2);
+            echo '<div class="notice notice-success"><p>Hosting health check completed in ' . esc_html($elapsed) . ' seconds!</p></div>';
         }
 
         // Handle clear cache
@@ -85,8 +83,8 @@ class ClientHealthDashboard {
         ]);
 
         // Get next scheduled runs
-        $next_health_run = wp_next_scheduled('bbab_hosting_health_cron');
-        $next_analytics_run = wp_next_scheduled('bbab_analytics_cron');
+        $next_health_run = wp_next_scheduled('bbab_sc_hosting_cron');
+        $next_analytics_run = wp_next_scheduled('bbab_sc_analytics_cron');
 
         // Current month for report check
         $current_month = date('F Y');
@@ -135,7 +133,7 @@ class ClientHealthDashboard {
                             echo esc_html(wp_date('M j, Y @ g:ia', $next_health_run));
                             echo ' &mdash; <em>in ' . esc_html(human_time_diff(time(), $next_health_run)) . '</em>';
                         } else {
-                            echo '<span style="color: red;">Not scheduled!</span> Requires Phase 3 hosting cron.';
+                            echo '<span style="color: red;">Not scheduled!</span> Ensure the Hosting Health Cron is active.';
                         }
                         ?>
                     </div>
@@ -155,38 +153,30 @@ class ClientHealthDashboard {
                     </form>
                 </div>
 
-                <?php if (!function_exists('bbab_get_cached_health_data')): ?>
-                    <div style="margin-top: 20px; padding: 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
-                        <strong>Hosting Health data not yet available.</strong><br>
-                        This section requires Phase 3 (Hosting Health Module) to be migrated.
-                        Once complete, uptime, SSL, and backup status will appear here.
-                    </div>
-                <?php else: ?>
-                    <table class="bbab-health-table" style="margin-top: 20px;">
-                        <thead>
-                            <tr>
-                                <th>Organization</th>
-                                <th>Uptime (30d)</th>
-                                <th>SSL Expiry</th>
-                                <th>Last Backup</th>
-                                <th>Cache Generated</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($orgs as $org):
-                                $health = bbab_get_cached_health_data($org->ID);
-                            ?>
-                            <tr>
-                                <td class="bbab-org-name"><?php echo esc_html($org->post_title); ?></td>
-                                <td><?php echo $this->renderUptimeCell($health); ?></td>
-                                <td><?php echo $this->renderSSLCell($health); ?></td>
-                                <td><?php echo $this->renderBackupCell($health); ?></td>
-                                <td><?php echo $this->renderCacheTimeCell($health); ?></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                <?php endif; ?>
+                <table class="bbab-health-table" style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th>Organization</th>
+                            <th>Uptime (30d)</th>
+                            <th>SSL Expiry</th>
+                            <th>Last Backup</th>
+                            <th>Cache Generated</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($orgs as $org):
+                            $health = Cache::get('health_data_' . $org->ID);
+                        ?>
+                        <tr>
+                            <td class="bbab-org-name"><?php echo esc_html($org->post_title); ?></td>
+                            <td><?php echo $this->renderUptimeCell($health); ?></td>
+                            <td><?php echo $this->renderSSLCell($health); ?></td>
+                            <td><?php echo $this->renderBackupCell($health); ?></td>
+                            <td><?php echo $this->renderCacheTimeCell($health); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
         <?php
@@ -487,8 +477,9 @@ class ClientHealthDashboard {
      */
     private function renderCacheTimeCell($health): string {
         if ($health && isset($health['generated_at'])) {
-            return esc_html(wp_date('M j, Y @ g:ia', strtotime($health['generated_at']))) .
-                '<span class="bbab-subtext">' . esc_html(human_time_diff(strtotime($health['generated_at']))) . ' ago</span>';
+            $timestamp = $health['generated_at'];
+            return esc_html(wp_date('M j, Y @ g:ia', $timestamp)) .
+                '<span class="bbab-subtext">' . esc_html(human_time_diff($timestamp)) . ' ago</span>';
         }
         return '<span class="bbab-status-na">&mdash;</span>';
     }
@@ -568,7 +559,7 @@ class ClientHealthDashboard {
                 overflow: hidden;
             }
             .bbab-section-header {
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(135deg, #1d2327 0%, #2c3338 100%);
                 color: #fff;
                 padding: 15px 20px;
                 margin: 0;
