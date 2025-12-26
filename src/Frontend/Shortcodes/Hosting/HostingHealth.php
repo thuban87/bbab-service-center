@@ -199,7 +199,7 @@ class HostingHealth extends BaseShortcode {
                     }
                     ?>
                 </div>
-                <div class="bbab-health-detail">Expires: <?php echo esc_html(gmdate('M j, Y', strtotime($ssl_data['expiry_date']))); ?></div>
+                <div class="bbab-health-detail">Expires: <?php echo esc_html(wp_date('M j, Y', strtotime($ssl_data['expiry_date']))); ?></div>
             <?php else: ?>
                 <div class="bbab-health-pending">
                     <span class="bbab-health-pending-icon">...</span>
@@ -258,7 +258,7 @@ class HostingHealth extends BaseShortcode {
                     }
                     ?>
                 </div>
-                <div class="bbab-health-detail"><?php echo esc_html(gmdate('M j, Y @ g:ia', strtotime($backup_data['created_at']))); ?></div>
+                <div class="bbab-health-detail"><?php echo esc_html(wp_date('M j, Y @ g:ia', strtotime($backup_data['created_at']))); ?></div>
             <?php else: ?>
                 <div class="bbab-health-pending">
                     <span class="bbab-health-pending-icon">...</span>
