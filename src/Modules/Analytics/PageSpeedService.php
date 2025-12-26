@@ -249,7 +249,7 @@ class PageSpeedService {
         // Extract overall performance score
         $perf_score = null;
         if (isset($categories['performance']['score'])) {
-            $perf_score = round($categories['performance']['score'] * 100);
+            $perf_score = (int) round($categories['performance']['score'] * 100);
         }
 
         // Determine ratings based on Core Web Vitals thresholds

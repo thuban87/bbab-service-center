@@ -28,9 +28,7 @@ class GoogleAuthService {
      * @return string|null Access token or null on failure
      */
     public static function getAccessToken(array $scopes): ?string {
-        $credentials_path = defined('BBAB_GOOGLE_CREDENTIALS_PATH')
-            ? BBAB_GOOGLE_CREDENTIALS_PATH
-            : '';
+        $credentials_path = self::getCredentialsPath();
 
         if (empty($credentials_path) || !file_exists($credentials_path)) {
             Logger::error('GoogleAuth', 'Credentials file not found', ['path' => $credentials_path]);
@@ -178,5 +176,28 @@ class GoogleAuthService {
     public static function clearTokenCache(): void {
         Cache::flushPattern('google_token_');
         Logger::debug('GoogleAuth', 'Token cache cleared');
+    }
+
+    /**
+     * Get the credentials file path based on environment.
+     *
+     * Checks in order:
+     * 1. BBAB_GOOGLE_CREDENTIALS_PATH_LOCAL (for local dev override)
+     * 2. BBAB_GOOGLE_CREDENTIALS_PATH (production default)
+     *
+     * @return string The credentials file path
+     */
+    private static function getCredentialsPath(): string {
+        // Check for local dev override first (useful for Windows dev environments)
+        if (defined('BBAB_GOOGLE_CREDENTIALS_PATH_LOCAL') && BBAB_GOOGLE_CREDENTIALS_PATH_LOCAL) {
+            return BBAB_GOOGLE_CREDENTIALS_PATH_LOCAL;
+        }
+
+        // Fall back to production path
+        if (defined('BBAB_GOOGLE_CREDENTIALS_PATH')) {
+            return BBAB_GOOGLE_CREDENTIALS_PATH;
+        }
+
+        return '';
     }
 }

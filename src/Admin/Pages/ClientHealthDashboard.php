@@ -5,6 +5,8 @@ namespace BBAB\ServiceCenter\Admin\Pages;
 
 use BBAB\ServiceCenter\Utils\Cache;
 use BBAB\ServiceCenter\Utils\Logger;
+use BBAB\ServiceCenter\Modules\Analytics\GA4Service;
+use BBAB\ServiceCenter\Modules\Analytics\PageSpeedService;
 
 /**
  * Client Health Dashboard Admin Page.
@@ -67,6 +69,11 @@ class ClientHealthDashboard {
             Cache::flushPattern('ga4_');
             Cache::flushPattern('cwv_');
             echo '<div class="notice notice-success"><p>Analytics cache cleared!</p></div>';
+        }
+
+        // Handle refresh analytics now
+        if (isset($_POST['refresh_analytics_now']) && check_admin_referer('bbab_refresh_analytics')) {
+            $this->runAnalyticsRefresh();
         }
 
         $orgs = get_posts([
@@ -207,12 +214,20 @@ class ClientHealthDashboard {
                         ?>
                         <span style="color: #666; font-size: 12px; margin-left: 10px;">(GA4 + PageSpeed data refreshed nightly)</span>
                     </div>
-                    <form method="post" style="display: inline-block;">
-                        <?php wp_nonce_field('bbab_clear_analytics_cache'); ?>
-                        <button type="submit" name="clear_analytics_cache" class="button" onclick="return confirm('Clear all cached analytics data?');">
-                            Clear Analytics Cache
-                        </button>
-                    </form>
+                    <div style="display: flex; gap: 10px;">
+                        <form method="post" style="display: inline-block;">
+                            <?php wp_nonce_field('bbab_refresh_analytics'); ?>
+                            <button type="submit" name="refresh_analytics_now" class="button button-primary" onclick="return confirm('This will fetch fresh data from GA4 and PageSpeed APIs for all clients. This may take a minute. Continue?');">
+                                Refresh Analytics Now
+                            </button>
+                        </form>
+                        <form method="post" style="display: inline-block;">
+                            <?php wp_nonce_field('bbab_clear_analytics_cache'); ?>
+                            <button type="submit" name="clear_analytics_cache" class="button" onclick="return confirm('Clear all cached analytics data?');">
+                                Clear Analytics Cache
+                            </button>
+                        </form>
+                    </div>
                 </div>
 
                 <table class="bbab-health-table">
@@ -476,6 +491,64 @@ class ClientHealthDashboard {
                 '<span class="bbab-subtext">' . esc_html(human_time_diff(strtotime($health['generated_at']))) . ' ago</span>';
         }
         return '<span class="bbab-status-na">&mdash;</span>';
+    }
+
+    /**
+     * Run analytics refresh for all organizations.
+     */
+    private function runAnalyticsRefresh(): void {
+        $start = microtime(true);
+        $results = [
+            'ga4_success' => 0,
+            'ga4_failed' => 0,
+            'psi_success' => 0,
+            'psi_failed' => 0,
+        ];
+
+        $orgs = get_posts([
+            'post_type' => 'client_organization',
+            'posts_per_page' => -1,
+            'post_status' => 'publish'
+        ]);
+
+        foreach ($orgs as $org) {
+            $org_id = $org->ID;
+
+            // GA4 Data
+            $ga4_property = get_post_meta($org_id, 'ga4_property_id', true);
+            if (!empty($ga4_property)) {
+                $ga4_data = GA4Service::fetchData($org_id);
+                if ($ga4_data) {
+                    GA4Service::fetchTopPages($org_id);
+                    GA4Service::fetchTrafficSources($org_id);
+                    GA4Service::fetchDevices($org_id);
+                    $results['ga4_success']++;
+                } else {
+                    $results['ga4_failed']++;
+                }
+            }
+
+            // PageSpeed Data
+            $site_url = get_post_meta($org_id, 'site_url', true);
+            if (!empty($site_url)) {
+                $psi_data = PageSpeedService::fetchData($org_id);
+                if ($psi_data) {
+                    $results['psi_success']++;
+                } else {
+                    $results['psi_failed']++;
+                }
+            }
+        }
+
+        $elapsed = round(microtime(true) - $start, 2);
+
+        echo '<div class="notice notice-success"><p>';
+        echo '<strong>Analytics refresh completed in ' . esc_html($elapsed) . ' seconds.</strong><br>';
+        echo 'GA4: ' . esc_html($results['ga4_success']) . ' success, ' . esc_html($results['ga4_failed']) . ' failed<br>';
+        echo 'PageSpeed: ' . esc_html($results['psi_success']) . ' success, ' . esc_html($results['psi_failed']) . ' failed';
+        echo '</p></div>';
+
+        Logger::debug('ClientHealthDashboard', 'Manual analytics refresh completed', $results);
     }
 
     /**
