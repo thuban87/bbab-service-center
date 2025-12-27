@@ -165,8 +165,18 @@ class TimeEntryService {
             return null;
         }
 
-        // Handle overnight spans (end time appears to be before start)
-        if ($end_timestamp <= $start_timestamp) {
+        // Handle same-minute entries (sub-minute timer runs)
+        // When start and end round to same minute, return minimum billing
+        if ($end_timestamp === $start_timestamp) {
+            Logger::debug('TimeEntryService', 'Same-minute entry, returning minimum billing', [
+                'start' => $time_start,
+                'end' => $time_end,
+            ]);
+            return 0.25; // Minimum 15-minute billing increment
+        }
+
+        // Handle overnight spans (end time is before start - crossed midnight)
+        if ($end_timestamp < $start_timestamp) {
             $end_timestamp += 86400; // Add 24 hours
         }
 

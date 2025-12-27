@@ -93,6 +93,9 @@ class AdminLoader {
         // Initialize global timer indicator (Phase 4.3)
         GlobalTimerIndicator::register();
 
+        // Initialize admin simulation bar (shows when simulating an org)
+        AdminSimulationBar::register();
+
         // Register assets
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
 
