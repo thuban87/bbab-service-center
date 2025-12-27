@@ -61,6 +61,9 @@ class Activator {
      * Schedule cron jobs.
      */
     private static function scheduleCronJobs(): void {
+        // Ensure custom schedules are registered before scheduling events
+        self::registerCronSchedules();
+
         // Analytics cron - runs twice daily
         if (!wp_next_scheduled('bbab_sc_analytics_cron')) {
             wp_schedule_event(time(), 'twicedaily', 'bbab_sc_analytics_cron');
@@ -77,5 +80,38 @@ class Activator {
         if (!wp_next_scheduled('bbab_sc_cleanup_cron')) {
             wp_schedule_event(time(), 'weekly', 'bbab_sc_cleanup_cron');
         }
+
+        // Forgotten timer check - runs every 30 minutes
+        // First, clean up old snippet events if they exist
+        $old_events = ['bbab_check_forgotten_timers', 'bbab_check_forgotten_timers_v2'];
+        foreach ($old_events as $old_event) {
+            $timestamp = wp_next_scheduled($old_event);
+            if ($timestamp) {
+                wp_unschedule_event($timestamp, $old_event);
+            }
+        }
+
+        // Schedule our new event
+        if (!wp_next_scheduled('bbab_sc_forgotten_timer_check')) {
+            wp_schedule_event(time(), 'thirty_minutes', 'bbab_sc_forgotten_timer_check');
+        }
+    }
+
+    /**
+     * Register custom cron schedules.
+     *
+     * This is needed during activation because the CronLoader filter
+     * isn't registered yet when activation runs.
+     */
+    private static function registerCronSchedules(): void {
+        add_filter('cron_schedules', function($schedules) {
+            if (!isset($schedules['thirty_minutes'])) {
+                $schedules['thirty_minutes'] = [
+                    'interval' => 1800,
+                    'display' => 'Every 30 Minutes',
+                ];
+            }
+            return $schedules;
+        });
     }
 }

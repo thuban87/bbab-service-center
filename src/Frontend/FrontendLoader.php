@@ -13,6 +13,12 @@ use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\ServiceRequests;
 use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\Roadmap;
 use BBAB\ServiceCenter\Frontend\Shortcodes\Analytics\ClientAnalytics;
 use BBAB\ServiceCenter\Frontend\Shortcodes\Hosting\HostingHealth;
+use BBAB\ServiceCenter\Frontend\Shortcodes\ServiceRequests\Archive as SRArchive;
+use BBAB\ServiceCenter\Frontend\Shortcodes\ServiceRequests\Detail as SRDetail;
+use BBAB\ServiceCenter\Frontend\Shortcodes\ServiceRequests\Attachments as SRAttachments;
+use BBAB\ServiceCenter\Frontend\Shortcodes\ServiceRequests\TimeEntries as SRTimeEntries;
+use BBAB\ServiceCenter\Frontend\Shortcodes\ServiceRequests\AccessControl as SRAccessControl;
+use BBAB\ServiceCenter\Frontend\Shortcodes\TimeTracking\EntriesDisplay as TEEntriesDisplay;
 use BBAB\ServiceCenter\Utils\Logger;
 
 /**
@@ -44,6 +50,9 @@ class FrontendLoader {
         $this->simulation_bar = new SimulationBar();
         $this->simulation_bar->register();
 
+        // Register access control for single SR pages
+        SRAccessControl::register();
+
         // Register shortcodes
         $this->registerShortcodes();
 
@@ -71,6 +80,13 @@ class FrontendLoader {
             ClientAnalytics::class,
             // Hosting shortcodes
             HostingHealth::class,
+            // Service Request shortcodes
+            SRArchive::class,
+            SRDetail::class,
+            SRAttachments::class,
+            SRTimeEntries::class,
+            // Time Tracking shortcodes
+            TEEntriesDisplay::class,
         ];
 
         foreach ($shortcode_classes as $class) {

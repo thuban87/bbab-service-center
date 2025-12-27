@@ -39,6 +39,7 @@ class Deactivator {
             'bbab_sc_analytics_cron',
             'bbab_sc_hosting_cron',
             'bbab_sc_cleanup_cron',
+            'bbab_sc_forgotten_timer_check',
         ];
 
         foreach ($cron_hooks as $hook) {

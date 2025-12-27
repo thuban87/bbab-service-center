@@ -1,0 +1,299 @@
+/**
+ * BBAB Service Center - Admin Service Center CSS
+ *
+ * Consolidated admin styles for SR, Time Entry, and related screens.
+ * Migrated from various WPCode snippets.
+ */
+
+/* ==========================================================================
+   Status Badges - Service Requests
+   ========================================================================== */
+
+.sr-status {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.sr-status-new {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.sr-status-acknowledged {
+    background: #fff3e0;
+    color: #f57c00;
+}
+
+.sr-status-in-progress {
+    background: #e8f5e9;
+    color: #388e3c;
+}
+
+.sr-status-waiting-on-client {
+    background: #fef9e7;
+    color: #b7950b;
+}
+
+.sr-status-on-hold {
+    background: #e8eaf6;
+    color: #5c6bc0;
+}
+
+.sr-status-completed {
+    background: #f5f5f5;
+    color: #616161;
+}
+
+.sr-status-cancelled {
+    background: #ffebee;
+    color: #c62828;
+}
+
+/* Priority Badges */
+.sr-priority {
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    display: inline-block;
+}
+
+/* Type Badges */
+.sr-type {
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    display: inline-block;
+    background: #e8eaf6;
+    color: #5c6bc0;
+}
+
+/* ==========================================================================
+   Time Entry Columns
+   ========================================================================== */
+
+.te-link-icon {
+    margin-right: 4px;
+}
+
+.te-link-subject {
+    color: #666;
+    font-size: 12px;
+}
+
+.te-orphan {
+    color: #c62828;
+    font-weight: 500;
+}
+
+.te-timer-running {
+    color: #1976d2;
+    font-weight: 500;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+.te-non-billable {
+    background: #d5f5e3;
+    color: #1e8449;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.te-billable {
+    color: #666;
+    font-size: 12px;
+}
+
+/* ==========================================================================
+   Attachment Badges
+   ========================================================================== */
+
+.sr-attachment-badge,
+.te-attachment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: #e8f5e9;
+    color: #388e3c;
+    border-radius: 3px;
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.sr-attachment-badge:hover,
+.te-attachment-badge:hover {
+    background: #c8e6c9;
+    color: #2e7d32;
+}
+
+.sr-attachment-badge .dashicons,
+.te-attachment-badge .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+}
+
+/* ==========================================================================
+   Admin List Table Improvements
+   ========================================================================== */
+
+/* Narrower columns for badges */
+.wp-list-table .column-request_status,
+.wp-list-table .column-priority,
+.wp-list-table .column-request_type {
+    width: 120px;
+}
+
+.wp-list-table .column-hours {
+    width: 70px;
+    text-align: right;
+}
+
+.wp-list-table .column-attachments,
+.wp-list-table .column-billable {
+    width: 80px;
+    text-align: center;
+}
+
+/* ==========================================================================
+   Metabox Styles
+   ========================================================================== */
+
+/* Common metabox card */
+.bbab-metabox-card {
+    background: #f9fafb;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.bbab-metabox-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+/* List rows in metaboxes */
+.bbab-metabox-row {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+    background: white;
+}
+
+.bbab-metabox-row:last-child {
+    border-bottom: none;
+}
+
+.bbab-metabox-row:hover {
+    background: #f5f6f7;
+}
+
+/* ==========================================================================
+   Timer Metabox
+   ========================================================================== */
+
+#bbab-timer-container {
+    text-align: center;
+}
+
+#bbab-timer-display {
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: #1976d2;
+    letter-spacing: 2px;
+}
+
+#bbab-start-timer,
+#bbab-stop-timer {
+    transition: all 0.2s ease;
+}
+
+#bbab-start-timer:hover {
+    background: #2271b1;
+    border-color: #2271b1;
+}
+
+#bbab-stop-timer:hover {
+    background: #ba0000;
+    border-color: #ba0000;
+}
+
+/* ==========================================================================
+   Quick Status Change
+   ========================================================================== */
+
+.sr-status-change {
+    display: inline-block;
+}
+
+.sr-status-select {
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 12px;
+    background: white;
+    cursor: pointer;
+    min-width: 130px;
+}
+
+.sr-status-select:hover {
+    border-color: #467FF7;
+}
+
+.sr-status-select:focus {
+    outline: none;
+    border-color: #467FF7;
+    box-shadow: 0 0 0 1px #467FF7;
+}
+
+/* ==========================================================================
+   Admin Notices
+   ========================================================================== */
+
+.bbab-admin-notice {
+    border-left-color: #467FF7;
+}
+
+.bbab-admin-notice.notice-success {
+    border-left-color: #46b450;
+}
+
+.bbab-admin-notice.notice-error {
+    border-left-color: #dc3232;
+}
+
+/* ==========================================================================
+   Responsive Adjustments
+   ========================================================================== */
+
+@media screen and (max-width: 782px) {
+    .wp-list-table .column-request_status,
+    .wp-list-table .column-priority {
+        width: auto;
+    }
+
+    .sr-status,
+    .sr-priority,
+    .sr-type {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+}

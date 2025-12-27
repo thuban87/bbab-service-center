@@ -55,6 +55,24 @@ class Settings {
         // Cookie/Session settings
         'simulation_cookie_name' => 'bbab_sc_sim_org',
         'simulation_cookie_expiry' => 3600, // 1 hour
+
+        // Time Tracking Settings
+        'forgotten_timer_email' => 'brad@bradsbitsandbytes.com',
+
+        // Service Request Email Notification
+        // Placeholders: {ref}, {org_name}, {user_name}, {user_email}, {type}, {subject}, {description}, {admin_link}
+        'sr_notification_email' => 'brad@bradsbitsandbytes.com',
+        'sr_notification_subject' => 'New Service Request: {ref} from {org_name}',
+        'sr_notification_body' => '<h2>New Service Request Submitted</h2>
+<p><strong>Reference:</strong> {ref}</p>
+<p><strong>Client:</strong> {org_name}</p>
+<p><strong>Submitted by:</strong> {user_name} ({user_email})</p>
+<p><strong>Type:</strong> {type}</p>
+<p><strong>Subject:</strong> {subject}</p>
+<p><strong>Description:</strong></p>
+<div style="background:#f5f5f5; padding:15px; border-left:4px solid #467FF7;">{description}</div>
+{attachments_note}
+<p><a href="{admin_link}" style="display:inline-block; background:#467FF7; color:white; padding:10px 20px; text-decoration:none; border-radius:4px; margin-top:15px;">View Service Request</a></p>',
     ];
 
     /**

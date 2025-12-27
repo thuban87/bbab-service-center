@@ -10,6 +10,7 @@ use BBAB\ServiceCenter\Modules\Hosting\SSLService;
 use BBAB\ServiceCenter\Modules\Hosting\BackupService;
 use BBAB\ServiceCenter\Utils\Cache;
 use BBAB\ServiceCenter\Utils\Logger;
+use BBAB\ServiceCenter\Cron\ForgottenTimerHandler;
 
 /**
  * Registers and handles all cron jobs.
@@ -23,6 +24,9 @@ class CronLoader {
      * Register cron hooks.
      */
     public function register(): void {
+        // Register custom cron schedules
+        add_filter('cron_schedules', [$this, 'addCronSchedules']);
+
         // Analytics dispatcher - runs at scheduled time, queues individual org jobs
         add_action('bbab_sc_analytics_cron', [$this, 'dispatchAnalyticsJobs']);
 
@@ -35,7 +39,25 @@ class CronLoader {
         // Cleanup cron
         add_action('bbab_sc_cleanup_cron', [$this, 'runCleanup']);
 
+        // Forgotten timer check - runs every 30 minutes
+        add_action('bbab_sc_forgotten_timer_check', [ForgottenTimerHandler::class, 'check']);
+
         Logger::debug('CronLoader', 'Cron hooks registered');
+    }
+
+    /**
+     * Add custom cron schedules.
+     *
+     * @param array $schedules Existing schedules.
+     * @return array Modified schedules.
+     */
+    public function addCronSchedules(array $schedules): array {
+        $schedules['thirty_minutes'] = [
+            'interval' => 1800, // 30 minutes in seconds
+            'display' => 'Every 30 Minutes',
+        ];
+
+        return $schedules;
     }
 
     /**
