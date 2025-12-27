@@ -14,23 +14,18 @@ class ProjectMilestoneRefColumns {
 
     /**
      * Register hooks.
+     *
+     * NOTE: Column registration removed - now handled by ProjectColumns.php
+     * and MilestoneColumns.php. This class only handles reference metaboxes.
      */
     public static function register(): void {
-        // Project columns (priority 20 to run AFTER snippet 1492)
-        add_filter('manage_project_posts_columns', [self::class, 'addProjectRefColumn'], 20);
-        add_action('manage_project_posts_custom_column', [self::class, 'renderProjectRefColumn'], 10, 2);
-
-        // Milestone columns (priority 20 to run AFTER snippet 1492)
-        add_filter('manage_milestone_posts_columns', [self::class, 'addMilestoneRefColumn'], 20);
-        add_action('manage_milestone_posts_custom_column', [self::class, 'renderMilestoneRefColumn'], 10, 2);
-
-        // Metaboxes
+        // Metaboxes only - columns now handled by ProjectColumns/MilestoneColumns
         add_action('add_meta_boxes', [self::class, 'registerMetaboxes']);
 
-        // Styles
-        add_action('admin_head', [self::class, 'renderStyles']);
+        // Styles for metaboxes
+        add_action('admin_head', [self::class, 'renderMetaboxStyles']);
 
-        Logger::debug('ProjectMilestoneRefColumns', 'Registered reference column hooks');
+        Logger::debug('ProjectMilestoneRefColumns', 'Registered reference metabox hooks');
     }
 
     /**
@@ -167,26 +162,16 @@ class ProjectMilestoneRefColumns {
     }
 
     /**
-     * Render styles.
+     * Render metabox styles.
      */
-    public static function renderStyles(): void {
+    public static function renderMetaboxStyles(): void {
         $screen = get_current_screen();
         if (!$screen || !in_array($screen->post_type, ['project', 'milestone'], true)) {
             return;
         }
 
+        // Metabox-only styles (column styles now in ProjectColumns/MilestoneColumns)
         echo '<style>
-            .wp-list-table .column-reference {
-                width: 100px;
-            }
-            .pm-reference {
-                font-family: monospace;
-                font-weight: 600;
-                color: #467FF7;
-            }
-            .pm-no-ref {
-                color: #999;
-            }
             .pm-ref-display {
                 text-align: center;
                 padding: 10px;

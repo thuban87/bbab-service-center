@@ -19,6 +19,15 @@ use BBAB\ServiceCenter\Frontend\Shortcodes\ServiceRequests\Attachments as SRAtta
 use BBAB\ServiceCenter\Frontend\Shortcodes\ServiceRequests\TimeEntries as SRTimeEntries;
 use BBAB\ServiceCenter\Frontend\Shortcodes\ServiceRequests\AccessControl as SRAccessControl;
 use BBAB\ServiceCenter\Frontend\Shortcodes\TimeTracking\EntriesDisplay as TEEntriesDisplay;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Projects\StatusBadge as ProjectStatusBadge;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Projects\MilestoneProgress;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Projects\SortControls as ProjectSortControls;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Projects\ArchiveFilter as ProjectArchiveFilter;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Projects\MilestoneLoopFilter;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Milestones\WorkBadge as MilestoneWorkBadge;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Milestones\BackToProject;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Milestones\DueDate as MilestoneDueDate;
+use BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard\ProjectsLink;
 use BBAB\ServiceCenter\Utils\Logger;
 
 /**
@@ -52,6 +61,10 @@ class FrontendLoader {
 
         // Register access control for single SR pages
         SRAccessControl::register();
+
+        // Register project archive filter and milestone loop filter (Phase 5.2)
+        ProjectArchiveFilter::register();
+        MilestoneLoopFilter::register();
 
         // Register shortcodes
         $this->registerShortcodes();
@@ -87,6 +100,15 @@ class FrontendLoader {
             SRTimeEntries::class,
             // Time Tracking shortcodes
             TEEntriesDisplay::class,
+            // Project shortcodes (Phase 5.2)
+            ProjectStatusBadge::class,
+            MilestoneProgress::class,
+            ProjectSortControls::class,
+            ProjectsLink::class,
+            // Milestone shortcodes (Phase 5.2)
+            MilestoneWorkBadge::class,
+            BackToProject::class,
+            MilestoneDueDate::class,
         ];
 
         foreach ($shortcode_classes as $class) {

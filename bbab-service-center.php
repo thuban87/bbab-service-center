@@ -77,37 +77,6 @@ if (!function_exists('bbab_generate_sr_reference')) {
     }
 }
 
-/**
- * Phase 5 Compatibility Wrappers
- *
- * These wrap project/milestone helper functions so snippet 1492's
- * column rendering code can call them.
- */
-
-if (!function_exists('bbab_get_project_invoiced_total')) {
-    function bbab_get_project_invoiced_total($project_id) {
-        return \BBAB\ServiceCenter\Modules\Projects\ProjectService::getInvoicedTotal((int) $project_id);
-    }
-}
-
-if (!function_exists('bbab_get_project_paid_total')) {
-    function bbab_get_project_paid_total($project_id) {
-        return \BBAB\ServiceCenter\Modules\Projects\ProjectService::getPaidTotal((int) $project_id);
-    }
-}
-
-if (!function_exists('bbab_get_milestone_invoice_count')) {
-    function bbab_get_milestone_invoice_count($milestone_id) {
-        return \BBAB\ServiceCenter\Modules\Projects\MilestoneService::getInvoiceCount((int) $milestone_id);
-    }
-}
-
-if (!function_exists('bbab_calculate_milestone_status')) {
-    function bbab_calculate_milestone_status($milestone_id) {
-        return \BBAB\ServiceCenter\Modules\Projects\MilestoneService::getPaymentStatus((int) $milestone_id);
-    }
-}
-
 // CRITICAL: Bootstrap simulation EARLY (before any other plugin code)
 // This runs on plugins_loaded priority 1, before anything else queries data
 add_action('plugins_loaded', function() {

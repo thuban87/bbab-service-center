@@ -138,6 +138,7 @@ class TimeEntryLinker {
      * Pre-populate Pods relationship fields from URL parameters.
      *
      * Outputs JavaScript to set Select2 field values on the new time entry page.
+     * Handles SR, Project, and Milestone pre-population.
      */
     public function prepopulatePodsFields(): void {
         global $pagenow, $typenow;
@@ -148,76 +149,118 @@ class TimeEntryLinker {
 
         $sr_id = isset($_GET['related_service_request']) ? absint($_GET['related_service_request']) : 0;
         $project_id = isset($_GET['related_project']) ? absint($_GET['related_project']) : 0;
+        $milestone_id = isset($_GET['related_milestone']) ? absint($_GET['related_milestone']) : 0;
 
-        if (!$sr_id && !$project_id) {
+        // If milestone is set but project isn't, get the parent project
+        if ($milestone_id && !$project_id) {
+            $parent_project = get_post_meta($milestone_id, 'related_project', true);
+            if (is_array($parent_project)) {
+                $parent_project = reset($parent_project);
+            }
+            $project_id = absint($parent_project);
+        }
+
+        if (!$sr_id && !$project_id && !$milestone_id) {
             return;
         }
 
-        // Get post info for the related item.
+        // Build pre-population data
+        $fields_to_populate = [];
+        $entry_type = '';
+        $description_prefix = '';
+        $nonce = wp_create_nonce('bbab_prepopulate_te');
+
+        // SR pre-population
         if ($sr_id) {
             $post = get_post($sr_id);
-            if (!$post || 'service_request' !== $post->post_type) {
-                return;
+            if ($post && 'service_request' === $post->post_type) {
+                $ref_number = get_post_meta($sr_id, 'reference_number', true);
+                $subject = get_post_meta($sr_id, 'subject', true) ?: $post->post_title;
+                $fields_to_populate['related_service_request'] = [
+                    'id' => $sr_id,
+                    'label' => $ref_number . ' - ' . $subject,
+                ];
+                $entry_type = 'Service Request';
+                $description_prefix = 'SR ' . $subject;
             }
-            $field_name = 'related_service_request';
-            $post_id = $sr_id;
-            $ref_number = get_post_meta($sr_id, 'reference_number', true);
-            $subject = get_post_meta($sr_id, 'subject', true) ?: $post->post_title;
-            $label = $ref_number . ' - ' . $subject;
-        } else {
-            $post = get_post($project_id);
-            if (!$post || 'project' !== $post->post_type) {
-                return;
-            }
-            $field_name = 'related_project';
-            $post_id = $project_id;
-            $ref_number = get_post_meta($project_id, 'reference_number', true);
-            $project_name = get_post_meta($project_id, 'project_name', true) ?: $post->post_title;
-            $label = $ref_number . ' - ' . $project_name;
         }
 
-        $nonce = wp_create_nonce('bbab_prepopulate_te');
-        $is_sr = $sr_id > 0;
+        // Project pre-population
+        if ($project_id) {
+            $post = get_post($project_id);
+            if ($post && 'project' === $post->post_type) {
+                $ref_number = get_post_meta($project_id, 'reference_number', true);
+                $project_name = get_post_meta($project_id, 'project_name', true) ?: $post->post_title;
+                $fields_to_populate['related_project'] = [
+                    'id' => $project_id,
+                    'label' => $ref_number . ' - ' . $project_name,
+                ];
+                $entry_type = 'Project';
+                // Only set description prefix if not coming from milestone
+                if (!$milestone_id) {
+                    $description_prefix = 'Project ' . $project_name;
+                }
+            }
+        }
+
+        // Milestone pre-population
+        if ($milestone_id) {
+            $post = get_post($milestone_id);
+            if ($post && 'milestone' === $post->post_type) {
+                $ref_number = get_post_meta($milestone_id, 'reference_number', true);
+                $milestone_name = get_post_meta($milestone_id, 'milestone_name', true) ?: $post->post_title;
+                $fields_to_populate['related_milestone'] = [
+                    'id' => $milestone_id,
+                    'label' => $ref_number . ' - ' . $milestone_name,
+                ];
+                $entry_type = 'Project'; // Milestones use "Project" entry type
+                $description_prefix = 'Milestone ' . $milestone_name;
+            }
+        }
+
+        if (empty($fields_to_populate)) {
+            return;
+        }
+
         ?>
         <script type="text/javascript">
         (function($) {
-            var fieldName = <?php echo wp_json_encode($field_name); ?>;
-            var postId = <?php echo wp_json_encode((string) $post_id); ?>;
-            var label = <?php echo wp_json_encode($label); ?>;
-            var isSR = <?php echo wp_json_encode($is_sr); ?>;
+            var fieldsToPopulate = <?php echo wp_json_encode($fields_to_populate); ?>;
+            var entryType = <?php echo wp_json_encode($entry_type); ?>;
+            var descriptionPrefix = <?php echo wp_json_encode($description_prefix); ?>;
             var nonce = <?php echo wp_json_encode($nonce); ?>;
-            var populated = false;
+            var populatedFields = {};
             var hiddenFieldsAdded = false;
+            var descriptionSet = false;
 
             function addHiddenFields() {
                 if (hiddenFieldsAdded) return;
                 var $form = $('form#post');
                 if (!$form.length) return;
-                if (isSR) {
-                    $form.append('<input type="hidden" name="bbab_prepopulate_sr" value="' + postId + '" />');
-                } else {
-                    $form.append('<input type="hidden" name="bbab_prepopulate_project" value="' + postId + '" />');
+
+                if (fieldsToPopulate.related_service_request) {
+                    $form.append('<input type="hidden" name="bbab_prepopulate_sr" value="' + fieldsToPopulate.related_service_request.id + '" />');
+                }
+                if (fieldsToPopulate.related_project) {
+                    $form.append('<input type="hidden" name="bbab_prepopulate_project" value="' + fieldsToPopulate.related_project.id + '" />');
                 }
                 $form.append('<input type="hidden" name="bbab_prepopulate_nonce" value="' + nonce + '" />');
                 hiddenFieldsAdded = true;
             }
 
-            function setSelect2Value($select) {
-                if (populated) return true;
+            function setSelect2Value($select, postId, label) {
                 if (!$select.hasClass('select2-hidden-accessible')) return false;
                 var currentVal = $select.val();
-                if (currentVal === postId || (Array.isArray(currentVal) && currentVal.indexOf(postId) !== -1)) {
-                    populated = true;
+                if (currentVal === String(postId) || (Array.isArray(currentVal) && currentVal.indexOf(String(postId)) !== -1)) {
                     return true;
                 }
                 var newOption = new Option(label, postId, true, true);
                 $select.append(newOption);
                 $select.val(postId).trigger('change');
-                populated = true;
                 return true;
             }
 
-            function findSelectField() {
+            function findSelectField(fieldName) {
                 var selectors = [
                     'select[name="pods_meta_' + fieldName + '"]',
                     'select[name="' + fieldName + '"]',
@@ -232,17 +275,70 @@ class TimeEntryLinker {
                 return null;
             }
 
+            function setEntryType() {
+                if (!entryType) return;
+                var $entryTypeField = $('select[name="entry_type"], select[name="pods_meta_entry_type"]');
+                if ($entryTypeField.length) {
+                    $entryTypeField.val(entryType).trigger('change');
+                }
+            }
+
+            function setDescription() {
+                if (descriptionSet || !descriptionPrefix) return;
+                // Try various field selectors for description/title
+                var selectors = [
+                    'input[name="description"]',
+                    'input[name="pods_meta_description"]',
+                    'textarea[name="description"]',
+                    'textarea[name="pods_meta_description"]',
+                    '#title', // WordPress post title field
+                    'input[name="post_title"]'
+                ];
+                for (var i = 0; i < selectors.length; i++) {
+                    var $field = $(selectors[i]);
+                    if ($field.length && !$field.val()) {
+                        $field.val(descriptionPrefix).trigger('change');
+                        descriptionSet = true;
+                        return;
+                    }
+                }
+            }
+
             function attemptPrepopulation() {
-                if (populated) return true;
-                var $select = findSelectField();
-                if ($select && $select.length) return setSelect2Value($select);
-                return false;
+                var allDone = true;
+
+                // Set entry type first (may affect conditional visibility)
+                setEntryType();
+
+                // Set description field
+                setDescription();
+
+                // Populate each field
+                for (var fieldName in fieldsToPopulate) {
+                    if (populatedFields[fieldName]) continue;
+
+                    var fieldData = fieldsToPopulate[fieldName];
+                    var $select = findSelectField(fieldName);
+
+                    if ($select && $select.length) {
+                        if (setSelect2Value($select, fieldData.id, fieldData.label)) {
+                            populatedFields[fieldName] = true;
+                        } else {
+                            allDone = false;
+                        }
+                    } else {
+                        allDone = false;
+                    }
+                }
+
+                return allDone;
             }
 
             function setupObserver() {
                 var observer = new MutationObserver(function(mutations) {
-                    if (populated) { observer.disconnect(); return; }
-                    if (attemptPrepopulation()) observer.disconnect();
+                    if (attemptPrepopulation()) {
+                        observer.disconnect();
+                    }
                 });
                 observer.observe(document.body, {
                     childList: true,
@@ -260,13 +356,13 @@ class TimeEntryLinker {
                     var attempts = 0;
                     var interval = setInterval(function() {
                         attempts++;
-                        if (attemptPrepopulation() || attempts > 20) clearInterval(interval);
+                        if (attemptPrepopulation() || attempts > 40) clearInterval(interval);
                     }, 250);
                 }
             });
 
             $(window).on('load', function() {
-                if (!populated) attemptPrepopulation();
+                attemptPrepopulation();
             });
         })(jQuery);
         </script>

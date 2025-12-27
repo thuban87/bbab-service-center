@@ -9,10 +9,14 @@ use BBAB\ServiceCenter\Admin\Pages\SettingsPage;
 use BBAB\ServiceCenter\Admin\Columns\ServiceRequestColumns;
 use BBAB\ServiceCenter\Admin\Columns\TimeEntryColumns;
 use BBAB\ServiceCenter\Admin\Columns\ProjectMilestoneRefColumns;
+use BBAB\ServiceCenter\Admin\Columns\ProjectColumns;
+use BBAB\ServiceCenter\Admin\Columns\MilestoneColumns;
 use BBAB\ServiceCenter\Admin\RowActions\LogTimeAction;
 use BBAB\ServiceCenter\Admin\Metaboxes\ServiceRequestMetabox;
 use BBAB\ServiceCenter\Admin\Metaboxes\TimerMetabox;
 use BBAB\ServiceCenter\Admin\Metaboxes\TimeEntryReassignMetabox;
+use BBAB\ServiceCenter\Admin\Metaboxes\ProjectMetabox;
+use BBAB\ServiceCenter\Admin\Metaboxes\MilestoneMetabox;
 use BBAB\ServiceCenter\Admin\GlobalTimerIndicator;
 use BBAB\ServiceCenter\Modules\TimeTracking\TimeEntryService;
 use BBAB\ServiceCenter\Modules\TimeTracking\TimerService;
@@ -91,7 +95,11 @@ class AdminLoader {
         ServiceRequestColumns::register();
         TimeEntryColumns::register();
 
-        // Initialize Project/Milestone reference columns + metaboxes (Phase 5.1)
+        // Initialize Project/Milestone columns (Phase 5.2)
+        ProjectColumns::register();
+        MilestoneColumns::register();
+
+        // Initialize Project/Milestone reference metaboxes (Phase 5.1)
         ProjectMilestoneRefColumns::register();
 
         // Initialize row actions (Phase 4.3)
@@ -101,6 +109,10 @@ class AdminLoader {
         ServiceRequestMetabox::register();
         TimerMetabox::register();
         TimeEntryReassignMetabox::register();
+
+        // Initialize Project/Milestone metaboxes (Phase 5.2)
+        ProjectMetabox::register();
+        MilestoneMetabox::register();
 
         // Initialize global timer indicator (Phase 4.3)
         GlobalTimerIndicator::register();

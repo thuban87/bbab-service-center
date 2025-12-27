@@ -6,16 +6,13 @@ namespace BBAB\ServiceCenter\Admin\RowActions;
 use BBAB\ServiceCenter\Utils\Logger;
 
 /**
- * Adds "Log Time" row action to Service Requests.
+ * Adds "Log Time" row action to Service Requests, Projects, and Milestones.
  *
  * Creates a convenient link to log time entries directly from
- * the SR admin list. The time entry is automatically linked
+ * admin post lists. The time entry is automatically linked
  * via transient (handled by TimeEntryLinker).
  *
- * NOTE: Project and Milestone row actions are deferred to Phase 5.
- * This class focuses on Service Requests only for now.
- *
- * Migrated from: WPCode Snippet #1884 (partial - SR only)
+ * Migrated from: WPCode Snippet #1884
  */
 class LogTimeAction {
 
@@ -33,7 +30,7 @@ class LogTimeAction {
     }
 
     /**
-     * Add "Log Time" row action to Service Requests.
+     * Add "Log Time" row action to Service Requests, Projects, and Milestones.
      *
      * @param array    $actions Existing row actions.
      * @param \WP_Post $post    Post object.
@@ -54,8 +51,33 @@ class LogTimeAction {
             );
         }
 
-        // NOTE: Project and Milestone row actions deferred to Phase 5
-        // See ADR and phase-4-implementation-guide.md for details
+        // Project
+        if ($post->post_type === 'project') {
+            $create_url = add_query_arg([
+                'post_type' => 'time_entry',
+                'related_project' => $post->ID,
+            ], admin_url('post-new.php'));
+
+            $actions['create_time_entry'] = sprintf(
+                '<a href="%s" style="color: #467FF7; font-weight: 500;">%s Log Time</a>',
+                esc_url($create_url),
+                '⏱️'
+            );
+        }
+
+        // Milestone
+        if ($post->post_type === 'milestone') {
+            $create_url = add_query_arg([
+                'post_type' => 'time_entry',
+                'related_milestone' => $post->ID,
+            ], admin_url('post-new.php'));
+
+            $actions['create_time_entry'] = sprintf(
+                '<a href="%s" style="color: #467FF7; font-weight: 500;">%s Log Time</a>',
+                esc_url($create_url),
+                '⏱️'
+            );
+        }
 
         return $actions;
     }
