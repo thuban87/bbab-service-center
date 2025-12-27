@@ -60,6 +60,13 @@ class Settings {
         // Time Tracking Settings
         'forgotten_timer_email' => 'brad@bradsbitsandbytes.com',
 
+        // PDF Generation Settings
+        'pdf_logo_url' => '', // Set via admin settings or wp_options
+
+        // Payment Settings
+        'zelle_email' => 'wales108@gmail.com', // Zelle payment recipient email
+        'cc_fee_percentage' => 0.03, // 3% credit card processing fee
+
         // Service Request Email Notification
         // Placeholders: {ref}, {org_name}, {user_name}, {user_email}, {type}, {subject}, {description}, {admin_link}
         'sr_notification_email' => 'brad@bradsbitsandbytes.com',

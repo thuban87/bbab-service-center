@@ -6,7 +6,8 @@
       "Bash(php -l:*)",
       "Bash(powershell -Command:*)",
       "Bash(findstr:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(php -r:*)"
     ]
   }
 }

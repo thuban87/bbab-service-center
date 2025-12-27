@@ -100,6 +100,23 @@ class SettingsPage {
             $existing['forgotten_timer_email'] = sanitize_email($input['forgotten_timer_email']);
         }
 
+        // Sanitize Billing settings
+        if (isset($input['zelle_email'])) {
+            $existing['zelle_email'] = sanitize_email($input['zelle_email']);
+        }
+
+        if (isset($input['cc_fee_percentage'])) {
+            $existing['cc_fee_percentage'] = floatval($input['cc_fee_percentage']);
+        }
+
+        if (isset($input['hourly_rate'])) {
+            $existing['hourly_rate'] = floatval($input['hourly_rate']);
+        }
+
+        if (isset($input['pdf_logo_url'])) {
+            $existing['pdf_logo_url'] = esc_url_raw($input['pdf_logo_url']);
+        }
+
         Logger::debug('SettingsPage', 'Settings saved');
 
         return $existing;
@@ -274,6 +291,84 @@ class SettingsPage {
                                    class="regular-text">
                             <p class="description">
                                 <?php esc_html_e('Email address to receive alerts when a timer has been running 4+ hours.', 'bbab-service-center'); ?>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- Billing Section -->
+                    <tr>
+                        <th colspan="2" style="padding-bottom: 0;">
+                            <h2 style="margin: 20px 0 0 0; padding: 10px 0; border-bottom: 1px solid #ccc;">
+                                Billing & Payments
+                            </h2>
+                        </th>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="zelle_email"><?php esc_html_e('Zelle Email', 'bbab-service-center'); ?></label>
+                        </th>
+                        <td>
+                            <input type="email"
+                                   id="zelle_email"
+                                   name="<?php echo esc_attr(self::OPTION_NAME); ?>[zelle_email]"
+                                   value="<?php echo esc_attr($settings['zelle_email'] ?? 'wales108@gmail.com'); ?>"
+                                   class="regular-text">
+                            <p class="description">
+                                <?php esc_html_e('Email address displayed on invoices for Zelle payments.', 'bbab-service-center'); ?>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="cc_fee_percentage"><?php esc_html_e('Credit Card Fee %', 'bbab-service-center'); ?></label>
+                        </th>
+                        <td>
+                            <input type="number"
+                                   id="cc_fee_percentage"
+                                   name="<?php echo esc_attr(self::OPTION_NAME); ?>[cc_fee_percentage]"
+                                   value="<?php echo esc_attr($settings['cc_fee_percentage'] ?? 0.03); ?>"
+                                   class="small-text"
+                                   step="0.001"
+                                   min="0"
+                                   max="1">
+                            <p class="description">
+                                <?php esc_html_e('Credit card processing fee as decimal (e.g., 0.03 = 3%). Applied to card payments.', 'bbab-service-center'); ?>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="hourly_rate"><?php esc_html_e('Default Hourly Rate', 'bbab-service-center'); ?></label>
+                        </th>
+                        <td>
+                            <input type="number"
+                                   id="hourly_rate"
+                                   name="<?php echo esc_attr(self::OPTION_NAME); ?>[hourly_rate]"
+                                   value="<?php echo esc_attr($settings['hourly_rate'] ?? 30); ?>"
+                                   class="small-text"
+                                   step="0.01"
+                                   min="0">
+                            <p class="description">
+                                <?php esc_html_e('Default hourly rate for support/overage billing (per hour).', 'bbab-service-center'); ?>
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th scope="row">
+                            <label for="pdf_logo_url"><?php esc_html_e('PDF Logo URL', 'bbab-service-center'); ?></label>
+                        </th>
+                        <td>
+                            <input type="url"
+                                   id="pdf_logo_url"
+                                   name="<?php echo esc_attr(self::OPTION_NAME); ?>[pdf_logo_url]"
+                                   value="<?php echo esc_attr($settings['pdf_logo_url'] ?? ''); ?>"
+                                   class="large-text">
+                            <p class="description">
+                                <?php esc_html_e('Full URL to logo image for invoice PDFs. Leave blank for default.', 'bbab-service-center'); ?>
                             </p>
                         </td>
                     </tr>
@@ -521,6 +616,22 @@ class SettingsPage {
                     <tr>
                         <td><code>simulation_enabled</code></td>
                         <td><?php echo $settings['simulation_enabled'] ? 'true' : 'false'; ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>zelle_email</code></td>
+                        <td><?php echo esc_html($settings['zelle_email'] ?: '(not set)'); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>cc_fee_percentage</code></td>
+                        <td><?php echo esc_html($settings['cc_fee_percentage'] ?? '0.03'); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>hourly_rate</code></td>
+                        <td><?php echo esc_html($settings['hourly_rate'] ?? '30'); ?></td>
+                    </tr>
+                    <tr>
+                        <td><code>pdf_logo_url</code></td>
+                        <td><?php echo esc_html($settings['pdf_logo_url'] ?: '(default)'); ?></td>
                     </tr>
                 </tbody>
             </table>

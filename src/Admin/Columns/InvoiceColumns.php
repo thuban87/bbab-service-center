@@ -5,6 +5,7 @@ namespace BBAB\ServiceCenter\Admin\Columns;
 
 use BBAB\ServiceCenter\Modules\Billing\InvoiceService;
 use BBAB\ServiceCenter\Modules\Billing\LineItemService;
+use BBAB\ServiceCenter\Modules\Billing\PDFService;
 use BBAB\ServiceCenter\Utils\Logger;
 
 /**
@@ -473,9 +474,24 @@ class InvoiceColumns {
 
         Logger::debug('InvoiceColumns', 'Invoice finalized', ['invoice_id' => $invoice_id]);
 
-        // TODO: Generate PDF when PDFService is migrated (Phase 6.2)
-        // For now, just redirect with success message
-        wp_redirect(admin_url('edit.php?post_type=invoice&finalized=1'));
+        // Generate PDF
+        $pdf_result = PDFService::generateInvoicePDF($invoice_id);
+
+        if (is_wp_error($pdf_result)) {
+            Logger::error('InvoiceColumns', 'PDF generation failed during finalize', [
+                'invoice_id' => $invoice_id,
+                'error' => $pdf_result->get_error_message(),
+            ]);
+            wp_redirect(admin_url('edit.php?post_type=invoice&finalized=1&pdf_error=1'));
+            exit;
+        }
+
+        Logger::debug('InvoiceColumns', 'PDF generated during finalize', [
+            'invoice_id' => $invoice_id,
+            'path' => $pdf_result,
+        ]);
+
+        wp_redirect(admin_url('edit.php?post_type=invoice&finalized=1&pdf_generated=1'));
         exit;
     }
 
@@ -597,7 +613,13 @@ class InvoiceColumns {
         }
 
         if (isset($_GET['finalized'])) {
-            echo '<div class="notice notice-success is-dismissible"><p><strong>Invoice finalized!</strong> It is now visible to the client.</p></div>';
+            $pdf_msg = '';
+            if (isset($_GET['pdf_generated'])) {
+                $pdf_msg = ' PDF generated successfully.';
+            } elseif (isset($_GET['pdf_error'])) {
+                $pdf_msg = ' <span style="color: #d63638;">PDF generation failed - check logs.</span>';
+            }
+            echo '<div class="notice notice-success is-dismissible"><p><strong>Invoice finalized!</strong> It is now visible to the client.' . $pdf_msg . '</p></div>';
         }
         if (isset($_GET['marked_paid'])) {
             echo '<div class="notice notice-success is-dismissible"><p><strong>Invoice marked as paid.</strong></p></div>';

@@ -148,6 +148,50 @@ if (!function_exists('bbab_get_milestone_total_hours')) {
     }
 }
 
+if (!function_exists('bbab_get_report_total_hours')) {
+    /**
+     * Get total billable hours for a monthly report.
+     *
+     * Compatibility wrapper - snippet 1062 deactivated in Phase 6.1.
+     * Called by [hours_progress_bar] shortcode.
+     *
+     * @param int $report_id Monthly report post ID.
+     * @return float Total billable hours.
+     */
+    function bbab_get_report_total_hours(int $report_id): float {
+        return \BBAB\ServiceCenter\Modules\Billing\MonthlyReportService::getTotalHours($report_id);
+    }
+}
+
+if (!function_exists('bbab_get_report_free_hours_limit')) {
+    /**
+     * Get free hours limit for a monthly report.
+     *
+     * Compatibility wrapper - snippet 1062 deactivated in Phase 6.1.
+     * Called by [hours_progress_bar] shortcode.
+     *
+     * @param int $report_id Monthly report post ID.
+     * @return float Free hours limit.
+     */
+    function bbab_get_report_free_hours_limit(int $report_id): float {
+        return \BBAB\ServiceCenter\Modules\Billing\MonthlyReportService::getFreeHoursLimit($report_id);
+    }
+}
+
+if (!function_exists('bbab_generate_invoice_pdf')) {
+    /**
+     * Generate PDF for an invoice.
+     *
+     * Compatibility wrapper - snippet 2113 deactivated in Phase 6.2.
+     *
+     * @param int $invoice_id Invoice post ID.
+     * @return string|WP_Error Path to generated PDF or error.
+     */
+    function bbab_generate_invoice_pdf(int $invoice_id): string|\WP_Error {
+        return \BBAB\ServiceCenter\Modules\Billing\PDFService::generateInvoicePDF($invoice_id);
+    }
+}
+
 // CRITICAL: Bootstrap simulation EARLY (before any other plugin code)
 // This runs on plugins_loaded priority 1, before anything else queries data
 add_action('plugins_loaded', function() {

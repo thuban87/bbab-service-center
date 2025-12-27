@@ -5,6 +5,7 @@ namespace BBAB\ServiceCenter\Admin\Metaboxes;
 
 use BBAB\ServiceCenter\Modules\Billing\InvoiceService;
 use BBAB\ServiceCenter\Modules\Billing\LineItemService;
+use BBAB\ServiceCenter\Modules\Billing\PDFService;
 use BBAB\ServiceCenter\Utils\Logger;
 
 /**
@@ -26,6 +27,7 @@ class InvoiceMetabox {
     public static function register(): void {
         add_action('add_meta_boxes', [self::class, 'registerMetaboxes']);
         add_action('admin_head', [self::class, 'renderStyles']);
+        add_action('wp_ajax_bbab_generate_invoice_pdf', [self::class, 'handleGeneratePDF']);
 
         Logger::debug('InvoiceMetabox', 'Registered invoice metabox hooks');
     }
@@ -147,13 +149,112 @@ class InvoiceMetabox {
         echo '</div>';
         echo '</div>';
 
-        // PDF Link
+        // PDF Link / Generate Button
         $pdf = InvoiceService::getPdf($invoice_id);
+        echo '<div class="invoice-pdf-actions">';
+
         if ($pdf && !empty($pdf['url'])) {
-            echo '<div class="invoice-pdf-link">';
-            echo '<a href="' . esc_url($pdf['url']) . '" target="_blank" class="button">📄 View PDF</a>';
-            echo '</div>';
+            echo '<a href="' . esc_url($pdf['url']) . '" target="_blank" class="button">📄 View PDF</a> ';
+            echo '<button type="button" class="button bbab-regenerate-pdf" data-invoice-id="' . esc_attr($invoice_id) . '">🔄 Regenerate</button>';
+        } else {
+            echo '<button type="button" class="button button-primary bbab-generate-pdf" data-invoice-id="' . esc_attr($invoice_id) . '">📄 Generate PDF</button>';
         }
+
+        echo '<div class="pdf-status" style="margin-top: 8px; font-size: 12px;"></div>';
+        echo '</div>';
+        echo self::getPDFScript($invoice_id);
+    }
+
+    /**
+     * Get JavaScript for PDF generation button.
+     *
+     * @param int $invoice_id Invoice post ID.
+     * @return string JavaScript code.
+     */
+    private static function getPDFScript(int $invoice_id): string {
+        $nonce = wp_create_nonce('bbab_generate_pdf_' . $invoice_id);
+
+        return "
+        <script>
+        jQuery(document).ready(function($) {
+            $('.bbab-generate-pdf, .bbab-regenerate-pdf').on('click', function() {
+                var btn = $(this);
+                var invoiceId = btn.data('invoice-id');
+                var statusDiv = btn.parent().find('.pdf-status');
+                var originalText = btn.text();
+
+                btn.prop('disabled', true).text('Generating...');
+                statusDiv.text('').removeClass('success error');
+
+                $.post(ajaxurl, {
+                    action: 'bbab_generate_invoice_pdf',
+                    invoice_id: invoiceId,
+                    nonce: '" . esc_js($nonce) . "'
+                }, function(response) {
+                    if (response.success) {
+                        statusDiv.text('PDF generated successfully!').addClass('success');
+                        setTimeout(function() {
+                            location.reload();
+                        }, 1000);
+                    } else {
+                        btn.prop('disabled', false).text(originalText);
+                        statusDiv.text(response.data.message || 'Error generating PDF').addClass('error');
+                    }
+                }).fail(function() {
+                    btn.prop('disabled', false).text(originalText);
+                    statusDiv.text('Connection error. Please try again.').addClass('error');
+                });
+            });
+        });
+        </script>";
+    }
+
+    /**
+     * Handle AJAX request to generate invoice PDF.
+     */
+    public static function handleGeneratePDF(): void {
+        $invoice_id = isset($_POST['invoice_id']) ? absint($_POST['invoice_id']) : 0;
+        $nonce = isset($_POST['nonce']) ? sanitize_text_field($_POST['nonce']) : '';
+
+        // Verify nonce
+        if (!wp_verify_nonce($nonce, 'bbab_generate_pdf_' . $invoice_id)) {
+            wp_send_json_error(['message' => 'Invalid security token.']);
+            return;
+        }
+
+        // Verify user capability
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => 'Permission denied.']);
+            return;
+        }
+
+        // Verify invoice exists
+        if (!$invoice_id || get_post_type($invoice_id) !== 'invoice') {
+            wp_send_json_error(['message' => 'Invalid invoice.']);
+            return;
+        }
+
+        // Generate PDF
+        $result = PDFService::generateInvoicePDF($invoice_id);
+
+        if (is_wp_error($result)) {
+            Logger::error('InvoiceMetabox', 'PDF generation failed', [
+                'invoice_id' => $invoice_id,
+                'error' => $result->get_error_message(),
+            ]);
+            wp_send_json_error(['message' => $result->get_error_message()]);
+            return;
+        }
+
+        Logger::debug('InvoiceMetabox', 'PDF generated via admin action', [
+            'invoice_id' => $invoice_id,
+            'path' => $result,
+        ]);
+
+        wp_send_json_success([
+            'message' => 'PDF generated successfully.',
+            'path' => $result,
+        ]);
     }
 
     /**
@@ -358,10 +459,19 @@ class InvoiceMetabox {
                 padding-top: 8px;
             }
 
-            /* PDF Link */
-            .invoice-pdf-link {
+            /* PDF Actions */
+            .invoice-pdf-actions {
                 text-align: center;
                 margin-top: 12px;
+            }
+            .invoice-pdf-actions .button {
+                margin: 2px;
+            }
+            .pdf-status.success {
+                color: #1e8449;
+            }
+            .pdf-status.error {
+                color: #c62828;
             }
 
             /* Line Items Table */
