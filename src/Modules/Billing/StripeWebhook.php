@@ -168,11 +168,22 @@ class StripeWebhook {
 
         $invoice_id = (int) ($session['metadata']['invoice_id'] ?? 0);
         $cc_fee = floatval($session['metadata']['cc_fee'] ?? 0);
+        $payment_intent = $session['payment_intent'] ?? '';
 
         if (!$invoice_id) {
             Logger::error('Stripe', 'No invoice_id in session metadata');
             return;
         }
+
+        // Prevent duplicate processing with transient lock
+        $lock_key = 'bbab_stripe_payment_' . $invoice_id . '_' . $payment_intent;
+        if (get_transient($lock_key)) {
+            Logger::debug('Stripe', 'Payment already being processed (lock exists)', [
+                'invoice_id' => $invoice_id,
+            ]);
+            return;
+        }
+        set_transient($lock_key, true, 300); // 5 minute lock
 
         // Get payment amount (convert from cents, subtract CC fee to get invoice amount)
         $amount_total = floatval($session['amount_total'] ?? 0) / 100;
@@ -182,7 +193,7 @@ class StripeWebhook {
             $invoice_id,
             $amount_paid,
             'stripe',
-            $session['payment_intent'] ?? '',
+            $payment_intent,
             $cc_fee
         );
     }
@@ -198,18 +209,31 @@ class StripeWebhook {
         ]);
 
         $invoice_id = (int) ($payment_intent['metadata']['invoice_id'] ?? 0);
+        $intent_id = $payment_intent['id'] ?? '';
 
         if (!$invoice_id) {
             Logger::debug('Stripe', 'No invoice_id in payment_intent metadata');
             return;
         }
 
-        // Check if already processed via checkout.session.completed
+        // Check transient lock first (faster than DB lookup)
+        $lock_key = 'bbab_stripe_payment_' . $invoice_id . '_' . $intent_id;
+        if (get_transient($lock_key)) {
+            Logger::debug('Stripe', 'Payment already processed (lock exists)', [
+                'invoice_id' => $invoice_id,
+            ]);
+            return;
+        }
+
+        // Also check if already processed via checkout.session.completed
         $existing_intent = get_post_meta($invoice_id, 'stripe_payment_intent', true);
-        if ($existing_intent === ($payment_intent['id'] ?? '')) {
+        if ($existing_intent === $intent_id) {
             Logger::debug('Stripe', 'Payment already processed via checkout.session.completed');
             return;
         }
+
+        // Set lock before processing
+        set_transient($lock_key, true, 300); // 5 minute lock
 
         // Get payment amount (convert from cents)
         $amount_paid = floatval($payment_intent['amount_received'] ?? 0) / 100;
@@ -218,7 +242,7 @@ class StripeWebhook {
             $invoice_id,
             $amount_paid,
             'stripe',
-            $payment_intent['id'] ?? '',
+            $intent_id,
             0
         );
     }

@@ -313,14 +313,20 @@ class LineItemColumns {
             }
 
             /* Column widths */
-            .column-title { width: 200px; }
-            .column-invoice { width: 120px; }
-            .column-line_type { width: 100px; }
-            .column-description { width: auto; }
+            .column-title { width: 180px; }
+            .column-invoice { width: 100px; }
+            .column-line_type { width: 120px; }
+            .column-description {
+                width: 250px;
+                max-width: 300px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
             .column-quantity { width: 60px; text-align: right; }
-            .column-rate { width: 80px; text-align: right; }
+            .column-rate { width: 70px; text-align: right; }
             .column-amount { width: 90px; text-align: right; }
-            .column-display_order { width: 60px; text-align: center; }
+            .column-display_order { width: 50px; text-align: center; }
 
             /* Right-align numeric columns */
             .column-quantity,

@@ -411,6 +411,14 @@ class MilestoneMetabox {
         // Check if milestone already has an invoice
         $billing_status = get_post_meta($post->ID, 'billing_status', true);
         if (in_array($billing_status, ['Invoiced', 'Invoiced as Deposit', 'Paid'], true)) {
+            // Show link to existing invoice
+            $existing_invoices = InvoiceService::getForMilestone($post->ID);
+            if (!empty($existing_invoices)) {
+                $invoice = $existing_invoices[0];
+                $edit_link = get_edit_post_link($invoice->ID);
+                $invoice_number = get_post_meta($invoice->ID, 'invoice_number', true);
+                $actions['view_invoice'] = '<a href="' . esc_url($edit_link) . '" style="color: #2563eb;">View Invoice (' . esc_html($invoice_number) . ')</a>';
+            }
             return $actions;
         }
 

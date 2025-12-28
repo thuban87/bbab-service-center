@@ -433,6 +433,9 @@ class InvoiceGenerator {
             ]);
         }
 
+        // Store billing model for PDF generation
+        update_post_meta($invoice_id, 'billing_model', $is_hourly ? 'hourly' : 'flat_rate');
+
         // Create line item(s)
         $display_order = 0;
         $line_type = ($is_deposit === '1' || $is_deposit === 1) ? 'Project Deposit' : 'Project Milestone';

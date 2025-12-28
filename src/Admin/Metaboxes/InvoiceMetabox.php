@@ -149,6 +149,18 @@ class InvoiceMetabox {
         echo '</div>';
         echo '</div>';
 
+        // Finalize Button (only for Draft invoices)
+        if ($status === InvoiceService::STATUS_DRAFT) {
+            $finalize_url = wp_nonce_url(
+                admin_url('admin-post.php?action=bbab_finalize_invoice&invoice_id=' . $invoice_id),
+                'bbab_finalize_invoice_' . $invoice_id
+            );
+            echo '<div class="invoice-finalize-action" style="margin-bottom: 12px; text-align: center;">';
+            echo '<a href="' . esc_url($finalize_url) . '" class="button button-primary" style="width: 100%;">Finalize Invoice</a>';
+            echo '<p style="margin: 6px 0 0 0; font-size: 11px; color: #666;">Makes invoice visible to client & generates PDF</p>';
+            echo '</div>';
+        }
+
         // PDF Link / Generate Button
         $pdf = InvoiceService::getPdf($invoice_id);
         echo '<div class="invoice-pdf-actions">';
