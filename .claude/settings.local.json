@@ -7,7 +7,8 @@
       "Bash(powershell -Command:*)",
       "Bash(findstr:*)",
       "Bash(node:*)",
-      "Bash(php -r:*)"
+      "Bash(php -r:*)",
+      "Bash(python3:*)"
     ]
   }
 }

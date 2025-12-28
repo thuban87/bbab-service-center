@@ -304,8 +304,15 @@ class ProjectMetabox {
         echo '</div>';
         echo '</div>';
 
-        // Milestone TEs (grouped)
+        // Milestone TEs (grouped) - only show milestones with time entries
+        $milestones_with_entries = 0;
         foreach ($milestone_data as $ms) {
+            // Skip milestones with no entries to reduce clutter
+            if (empty($ms['entries'])) {
+                continue;
+            }
+            $milestones_with_entries++;
+
             $ms_label = $ms['ref'] ? $ms['ref'] . ': ' . $ms['name'] : $ms['name'];
 
             echo '<div class="bbab-te-group" style="margin-top: 12px;">';
@@ -314,18 +321,22 @@ class ProjectMetabox {
             echo '<span>' . count($ms['entries']) . ' entries &bull; ' . number_format($ms['hours'], 2) . ' hrs</span>';
             echo '</div>';
 
-            if (!empty($ms['entries'])) {
-                foreach ($ms['entries'] as $te) {
-                    self::renderTeRow($te);
-                }
-            } else {
-                echo '<div class="bbab-empty-state">No time entries.</div>';
+            foreach ($ms['entries'] as $te) {
+                self::renderTeRow($te);
             }
 
             echo '<div class="bbab-group-footer">';
             echo '<a href="' . admin_url('post-new.php?post_type=time_entry&related_milestone=' . $ms['id']) . '" class="button button-small">+ Log Time</a>';
             echo ' <a href="' . esc_url(get_edit_post_link($ms['id'])) . '" class="button button-small" style="margin-left: 4px;">Edit Milestone</a>';
             echo '</div>';
+            echo '</div>';
+        }
+
+        // Show summary if milestones exist but have no entries
+        if (!empty($milestone_data) && $milestones_with_entries === 0) {
+            $total_milestones = count($milestone_data);
+            echo '<div class="bbab-empty-state" style="margin: 12px;">';
+            echo esc_html($total_milestones) . ' milestone' . ($total_milestones > 1 ? 's' : '') . ' exist, but none have time entries yet.';
             echo '</div>';
         }
 
@@ -808,7 +819,15 @@ class ProjectMetabox {
 
         // Check if project already closed out
         $billing_status = get_post_meta($post->ID, 'billing_status', true) ?: 'Not Started';
+
         if ($billing_status === 'Invoiced') {
+            // Show link to existing closeout invoice
+            $existing_closeout = InvoiceService::getCloseoutForProject($post->ID);
+            if ($existing_closeout) {
+                $edit_link = get_edit_post_link($existing_closeout->ID);
+                $invoice_number = get_post_meta($existing_closeout->ID, 'invoice_number', true);
+                $actions['view_closeout'] = '<a href="' . esc_url($edit_link) . '" style="color: #059669;">View Closeout Invoice (' . esc_html($invoice_number) . ')</a>';
+            }
             return $actions;
         }
 

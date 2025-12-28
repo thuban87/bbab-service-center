@@ -48,8 +48,15 @@ class PDFService {
 
         // Get organization data
         $org_id = get_post_meta($invoice_id, 'organization', true);
-        $org = $org_id ? get_post($org_id) : null;
-        $org_name = $org ? $org->post_title : '';
+        $org_name = '';
+        if ($org_id) {
+            // Use Pods 'name' field (preferred) with fallback to post_title
+            $org_name = get_post_meta($org_id, 'name', true);
+            if (empty($org_name)) {
+                $org = get_post($org_id);
+                $org_name = $org ? $org->post_title : '';
+            }
+        }
         $hourly_rate = floatval(get_post_meta($org_id, 'hourly_rate', true) ?: Settings::get('hourly_rate', 30));
         $free_hours_limit = floatval(get_post_meta($org_id, 'free_hours', true) ?: Settings::get('default_free_hours', 2));
 
@@ -119,6 +126,9 @@ class PDFService {
         // Get time entries for detail page
         $time_entries = self::getInvoiceTimeEntries($invoice_id);
 
+        // Get billing model (flat_rate vs hourly) for milestone invoices
+        $billing_model = get_post_meta($invoice_id, 'billing_model', true) ?: '';
+
         // Format dates
         $invoice_date_display = $invoice_date ? date('F j, Y', strtotime($invoice_date)) : '';
         $due_date_display = $due_date ? date('F j, Y', strtotime($due_date)) : '';
@@ -151,6 +161,7 @@ class PDFService {
             'notes' => $invoice_notes,
             'closeout_data' => get_post_meta($invoice_id, 'closeout_data', true),
             'time_entries' => $time_entries,
+            'billing_model' => $billing_model,
         ]);
 
         // Check if Dompdf is available
@@ -683,6 +694,9 @@ class PDFService {
         $milestone_ref = $has_milestone_ref ? $data['time_entries'][0]['reference'] : '';
         $milestone_name = $has_milestone_ref ? $data['time_entries'][0]['reference_title'] : '';
 
+        // Check if this is a flat-rate milestone invoice
+        $is_flat_rate = ($data['billing_model'] ?? '') === 'flat_rate';
+
         $te_billable_hours = 0;
         $te_non_billable_hours = 0;
 
@@ -711,68 +725,104 @@ class PDFService {
         }
 
         $hourly_rate = $data['hourly_rate'] ?? 30;
-        $gross_amount = $te_billable_hours * $hourly_rate;
-        $free_hours_applied = $data['free_hours_applied'] ?? 0;
-        $free_hours_credit = $free_hours_applied * $hourly_rate;
         $total_due = $data['total'];
 
         // Section subtotal row
-        $hours_display = number_format($te_billable_hours, 2);
-        if ($te_non_billable_hours > 0) {
-            $hours_display .= " <span style=\"color: #9ca3af;\">(+" . number_format($te_non_billable_hours, 2) . " NB)</span>";
-        }
+        $total_hours = $te_billable_hours + $te_non_billable_hours;
+        $hours_display = number_format($total_hours, 2);
 
-        $subtotal_html = "
-        <tr style=\"background: #fafafa; font-weight: bold;\">
-            <td colspan=\"2\" style=\"padding: 6px 8px; text-align: right; font-size: 10px;\">Subtotal: {$hours_display} hrs x \$" . number_format($hourly_rate, 2) . "</td>
-            <td style=\"padding: 6px 8px; text-align: right; font-size: 10px;\">\$" . number_format($gross_amount, 2) . "</td>
-        </tr>";
+        if ($is_flat_rate) {
+            // FLAT RATE: Just show total hours logged, no rate calculation
+            $subtotal_html = "
+            <tr style=\"background: #fafafa; font-weight: bold;\">
+                <td colspan=\"2\" style=\"padding: 6px 8px; text-align: right; font-size: 10px;\">Total Hours Logged:</td>
+                <td style=\"padding: 6px 8px; text-align: right; font-size: 10px;\">{$hours_display}</td>
+            </tr>";
 
-        // Grand totals box
-        $totals_rows = "
-        <tr>
-            <td style=\"padding: 4px 0;\"><strong>Total Hours:</strong></td>
-            <td style=\"padding: 4px 0; text-align: right;\">" . number_format($te_billable_hours, 2) . " hrs</td>
-        </tr>
-        <tr>
-            <td style=\"padding: 4px 0;\"><strong>Rate:</strong></td>
-            <td style=\"padding: 4px 0; text-align: right;\">\$" . number_format($hourly_rate, 2) . "/hr</td>
-        </tr>
-        <tr>
-            <td style=\"padding: 4px 0;\"><strong>Gross Amount:</strong></td>
-            <td style=\"padding: 4px 0; text-align: right;\">\$" . number_format($gross_amount, 2) . "</td>
-        </tr>";
-
-        if ($free_hours_applied > 0) {
-            $totals_rows .= "
+            // Grand totals box for flat rate
+            $totals_rows = "
             <tr>
-                <td style=\"padding: 4px 0; color: #059669;\">Free Hours Credit (" . number_format($free_hours_applied, 2) . " hrs):</td>
-                <td style=\"padding: 4px 0; text-align: right; color: #059669;\">-\$" . number_format($free_hours_credit, 2) . "</td>
+                <td style=\"padding: 4px 0;\"><strong>Total Hours Logged:</strong></td>
+                <td style=\"padding: 4px 0; text-align: right;\">" . number_format($total_hours, 2) . " hrs</td>
+            </tr>
+            <tr>
+                <td style=\"padding: 4px 0;\"><strong>Billing:</strong></td>
+                <td style=\"padding: 4px 0; text-align: right;\">Flat Rate</td>
+            </tr>
+            <tr style=\"font-size: 14px; border-top: 2px solid #374151;\">
+                <td style=\"padding: 10px 0 0 0;\"><strong>Total Due:</strong></td>
+                <td style=\"padding: 10px 0 0 0; text-align: right;\"><strong>\$" . number_format($total_due, 2) . "</strong></td>
+            </tr>";
+        } else {
+            // HOURLY: Show the rate calculation
+            $gross_amount = $te_billable_hours * $hourly_rate;
+            $free_hours_applied = $data['free_hours_applied'] ?? 0;
+            $free_hours_credit = $free_hours_applied * $hourly_rate;
+
+            $billable_display = number_format($te_billable_hours, 2);
+            if ($te_non_billable_hours > 0) {
+                $billable_display .= " <span style=\"color: #9ca3af;\">(+" . number_format($te_non_billable_hours, 2) . " NB)</span>";
+            }
+
+            $subtotal_html = "
+            <tr style=\"background: #fafafa; font-weight: bold;\">
+                <td colspan=\"2\" style=\"padding: 6px 8px; text-align: right; font-size: 10px;\">Subtotal: {$billable_display} hrs x \$" . number_format($hourly_rate, 2) . "</td>
+                <td style=\"padding: 6px 8px; text-align: right; font-size: 10px;\">\$" . number_format($gross_amount, 2) . "</td>
+            </tr>";
+
+            // Grand totals box for hourly
+            $totals_rows = "
+            <tr>
+                <td style=\"padding: 4px 0;\"><strong>Total Hours:</strong></td>
+                <td style=\"padding: 4px 0; text-align: right;\">" . number_format($te_billable_hours, 2) . " hrs</td>
+            </tr>
+            <tr>
+                <td style=\"padding: 4px 0;\"><strong>Rate:</strong></td>
+                <td style=\"padding: 4px 0; text-align: right;\">\$" . number_format($hourly_rate, 2) . "/hr</td>
+            </tr>
+            <tr>
+                <td style=\"padding: 4px 0;\"><strong>Gross Amount:</strong></td>
+                <td style=\"padding: 4px 0; text-align: right;\">\$" . number_format($gross_amount, 2) . "</td>
+            </tr>";
+
+            if ($free_hours_applied > 0) {
+                $totals_rows .= "
+                <tr>
+                    <td style=\"padding: 4px 0; color: #059669;\">Free Hours Credit (" . number_format($free_hours_applied, 2) . " hrs):</td>
+                    <td style=\"padding: 4px 0; text-align: right; color: #059669;\">-\$" . number_format($free_hours_credit, 2) . "</td>
+                </tr>";
+            }
+
+            if ($te_non_billable_hours > 0) {
+                $totals_rows .= "
+                <tr>
+                    <td style=\"padding: 4px 0; color: #9ca3af;\">Non-Billable (" . number_format($te_non_billable_hours, 2) . " hrs):</td>
+                    <td style=\"padding: 4px 0; text-align: right; color: #9ca3af;\">\$0.00</td>
+                </tr>";
+            }
+
+            $totals_rows .= "
+            <tr style=\"font-size: 14px; border-top: 2px solid #374151;\">
+                <td style=\"padding: 10px 0 0 0;\"><strong>Total Due:</strong></td>
+                <td style=\"padding: 10px 0 0 0; text-align: right;\"><strong>\$" . number_format($total_due, 2) . "</strong></td>
             </tr>";
         }
-
-        if ($te_non_billable_hours > 0) {
-            $totals_rows .= "
-            <tr>
-                <td style=\"padding: 4px 0; color: #9ca3af;\">Non-Billable (" . number_format($te_non_billable_hours, 2) . " hrs):</td>
-                <td style=\"padding: 4px 0; text-align: right; color: #9ca3af;\">\$0.00</td>
-            </tr>";
-        }
-
-        $totals_rows .= "
-        <tr style=\"font-size: 14px; border-top: 2px solid #374151;\">
-            <td style=\"padding: 10px 0 0 0;\"><strong>Total Due:</strong></td>
-            <td style=\"padding: 10px 0 0 0; text-align: right;\"><strong>\$" . number_format($total_due, 2) . "</strong></td>
-        </tr>";
 
         // Section header
         $section_header = '';
         if ($has_milestone_ref) {
+            $billing_badge = $is_flat_rate
+                ? '<span style="background: #dbeafe; color: #1e40af; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px;">FLAT RATE</span>'
+                : '<span style="background: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 8px;">HOURLY</span>';
             $section_header = "
             <div style=\"background: #f3f4f6; padding: 8px 12px; border-radius: 4px 4px 0 0; border-bottom: 2px solid #e5e7eb; margin-bottom: 0;\">
-                <strong style=\"font-size: 12px;\">" . esc_html($milestone_ref . ' - ' . $milestone_name) . "</strong>
+                <strong style=\"font-size: 12px;\">" . esc_html($milestone_ref . ' - ' . $milestone_name) . "</strong>{$billing_badge}
             </div>";
         }
+
+        $footer_note = $is_flat_rate
+            ? "<div style=\"margin-top: 15px; font-size: 10px; color: #9ca3af;\">This is a flat-rate milestone. Hours are shown for transparency.</div>"
+            : "<div style=\"margin-top: 15px; font-size: 10px; color: #9ca3af;\">NB = Non-Billable (shown for transparency, not charged)</div>";
 
         return "
         <div style=\"page-break-before: always;\"></div>
@@ -809,27 +859,211 @@ class PDFService {
             </table>
         </div>
 
-        <div style=\"margin-top: 15px; font-size: 10px; color: #9ca3af;\">
-            NB = Non-Billable (shown for transparency, not charged)
-        </div>";
+        {$footer_note}";
     }
 
     /**
      * Build page 2 for closeout invoices.
      *
+     * Grouped by milestone with section headers, status badges,
+     * time entry details, and credits summary.
+     *
      * @param array  $data         Invoice data.
-     * @param array  $closeout_data Closeout data.
+     * @param array  $closeout_data Closeout data (from invoice meta).
      * @param string $logo_url     Logo URL.
      * @return string HTML string.
      */
     private static function buildCloseoutDetailsPage(array $data, array $closeout_data, string $logo_url): string {
-        // Simplified implementation - closeout invoices use structured milestone data
-        // Full implementation would mirror the original snippet closely
         $hourly_rate = $closeout_data['hourly_rate'] ?? 30;
+        $sections_html = '';
         $grand_total_hours = 0;
         $grand_total_amount = 0;
 
-        $sections_html = '<p style="font-size: 12px; color: #6b7280;">Project closeout details available in full version.</p>';
+        // Project-level TEs section
+        if (($closeout_data['project_te_count'] ?? 0) > 0) {
+            $project_ref = $closeout_data['project_ref'] ?? '';
+            $project_name = $closeout_data['project_name'] ?? '';
+            $project_hours = $closeout_data['project_billable_hours'] ?? 0;
+            $project_nb_hours = $closeout_data['project_non_billable_hours'] ?? 0;
+            $project_amount = $project_hours * $hourly_rate;
+
+            $grand_total_hours += $project_hours;
+            $grand_total_amount += $project_amount;
+
+            // Get project TEs
+            $project_id = get_post_meta($data['invoice_id'], 'related_project', true);
+            $project_tes = [];
+            if ($project_id) {
+                $te_posts = get_posts([
+                    'post_type' => 'time_entry',
+                    'posts_per_page' => -1,
+                    'post_status' => 'publish',
+                    'meta_query' => [[
+                        'key' => 'related_project',
+                        'value' => $project_id,
+                        'compare' => '=',
+                    ]],
+                    'meta_key' => 'entry_date',
+                    'orderby' => 'meta_value',
+                    'order' => 'ASC',
+                ]);
+
+                foreach ($te_posts as $te) {
+                    $project_tes[] = [
+                        'date' => get_post_meta($te->ID, 'entry_date', true),
+                        'title' => get_the_title($te->ID),
+                        'description' => get_post_meta($te->ID, 'description', true),
+                        'hours' => floatval(get_post_meta($te->ID, 'hours', true)),
+                        'billable' => get_post_meta($te->ID, 'billable', true) !== '0',
+                    ];
+                }
+            }
+
+            $sections_html .= self::buildCloseoutSection(
+                $project_ref . ' - ' . $project_name,
+                'Project Work',
+                null,
+                $project_tes,
+                $project_hours,
+                $project_nb_hours,
+                $hourly_rate
+            );
+        }
+
+        // Milestone sections
+        $milestones = $closeout_data['milestones'] ?? [];
+        foreach ($milestones as $ms) {
+            $ms_hours = $ms['billable_hours'] ?? 0;
+            $ms_nb_hours = $ms['non_billable_hours'] ?? 0;
+            $ms_amount = $ms_hours * $hourly_rate;
+
+            $grand_total_hours += $ms_hours;
+            $grand_total_amount += $ms_amount;
+
+            // Determine status badge
+            $status_badge = '';
+            $status_color = '#6b7280';
+            $invoice_status = $ms['invoice_status'] ?? '';
+
+            if ($invoice_status === 'Paid') {
+                $status_badge = 'PAID';
+                $status_color = '#059669';
+            } elseif ($invoice_status === 'Partial') {
+                $amount_paid = $ms['amount_paid'] ?? 0;
+                $status_badge = 'PARTIAL ($' . number_format($amount_paid, 2) . ' paid)';
+                $status_color = '#2563eb';
+            } elseif ($invoice_status === 'Cancelled') {
+                $status_badge = 'INCLUDED IN CLOSEOUT';
+                $status_color = '#7c3aed';
+            } elseif ($invoice_status === 'Draft') {
+                $status_badge = 'DRAFT - NOT BILLED';
+                $status_color = '#d97706';
+            } elseif (empty($invoice_status)) {
+                $status_badge = 'NOT INVOICED';
+                $status_color = '#d97706';
+            }
+
+            // Get milestone TEs
+            $ms_tes = [];
+            $ms_id = $ms['id'] ?? 0;
+            if ($ms_id) {
+                $te_posts = get_posts([
+                    'post_type' => 'time_entry',
+                    'posts_per_page' => -1,
+                    'post_status' => 'publish',
+                    'meta_query' => [[
+                        'key' => 'related_milestone',
+                        'value' => $ms_id,
+                        'compare' => '=',
+                    ]],
+                    'meta_key' => 'entry_date',
+                    'orderby' => 'meta_value',
+                    'order' => 'ASC',
+                ]);
+
+                foreach ($te_posts as $te) {
+                    $ms_tes[] = [
+                        'date' => get_post_meta($te->ID, 'entry_date', true),
+                        'title' => get_the_title($te->ID),
+                        'description' => get_post_meta($te->ID, 'description', true),
+                        'hours' => floatval(get_post_meta($te->ID, 'hours', true)),
+                        'billable' => get_post_meta($te->ID, 'billable', true) !== '0',
+                    ];
+                }
+            }
+
+            $ms_ref = $ms['ref'] ?? '';
+            $ms_name = $ms['name'] ?? 'Milestone';
+            $title = ($ms_ref ?: 'Milestone') . ' - ' . $ms_name;
+
+            $sections_html .= self::buildCloseoutSection(
+                $title,
+                $status_badge,
+                $status_color,
+                $ms_tes,
+                $ms_hours,
+                $ms_nb_hours,
+                $hourly_rate
+            );
+        }
+
+        // Build credits summary
+        $credits_html = '';
+        $total_credits = 0;
+        $credits = $closeout_data['credits'] ?? [];
+
+        if (!empty($credits)) {
+            $credits_html .= "
+            <div style=\"margin-top: 20px; padding: 15px; background: #ecfdf5; border-radius: 6px;\">
+                <div style=\"font-weight: bold; font-size: 12px; margin-bottom: 10px; color: #065f46;\">Previous Payments Applied</div>
+                <table style=\"width: 100%; font-size: 11px;\">";
+
+            foreach ($credits as $credit) {
+                $credit_amount = $credit['amount'] ?? 0;
+                $total_credits += $credit_amount;
+                $credit_desc = esc_html($credit['description'] ?? '');
+                $credits_html .= "
+                <tr>
+                    <td style=\"padding: 3px 0;\">{$credit_desc}</td>
+                    <td style=\"padding: 3px 0; text-align: right; color: #059669;\">-\$" . number_format($credit_amount, 2) . "</td>
+                </tr>";
+            }
+
+            $credits_html .= "
+                <tr style=\"font-weight: bold; border-top: 1px solid #a7f3d0;\">
+                    <td style=\"padding: 8px 0 0 0;\">Total Credits:</td>
+                    <td style=\"padding: 8px 0 0 0; text-align: right; color: #059669;\">-\$" . number_format($total_credits, 2) . "</td>
+                </tr>
+                </table>
+            </div>";
+        }
+
+        // Grand totals
+        $final_balance = $grand_total_amount - $total_credits;
+        $balance_color = $final_balance < 0 ? '#059669' : '#1f2937';
+        $balance_label = $final_balance < 0 ? 'Credit Balance:' : 'Balance Due:';
+
+        $grand_totals_html = "
+        <div style=\"margin-top: 20px; padding: 15px; background: #f9fafb; border-radius: 6px; border: 2px solid #e5e7eb;\">
+            <table style=\"width: 100%; font-size: 12px;\">
+                <tr>
+                    <td style=\"padding: 4px 0;\"><strong>Total Project Hours:</strong></td>
+                    <td style=\"padding: 4px 0; text-align: right;\">" . number_format($grand_total_hours, 2) . " hrs</td>
+                </tr>
+                <tr>
+                    <td style=\"padding: 4px 0;\"><strong>Gross Project Amount:</strong></td>
+                    <td style=\"padding: 4px 0; text-align: right;\">\$" . number_format($grand_total_amount, 2) . "</td>
+                </tr>
+                <tr>
+                    <td style=\"padding: 4px 0;\"><strong>Total Credits Applied:</strong></td>
+                    <td style=\"padding: 4px 0; text-align: right; color: #059669;\">-\$" . number_format($total_credits, 2) . "</td>
+                </tr>
+                <tr style=\"font-size: 14px; border-top: 2px solid #374151;\">
+                    <td style=\"padding: 10px 0 0 0;\"><strong>{$balance_label}</strong></td>
+                    <td style=\"padding: 10px 0 0 0; text-align: right; color: {$balance_color};\"><strong>\$" . number_format(abs($final_balance), 2) . "</strong></td>
+                </tr>
+            </table>
+        </div>";
 
         return "
         <div style=\"page-break-before: always;\"></div>
@@ -845,9 +1079,88 @@ class PDFService {
         </div>
 
         {$sections_html}
+        {$credits_html}
+        {$grand_totals_html}
 
         <div style=\"margin-top: 15px; font-size: 10px; color: #9ca3af;\">
             NB = Non-Billable (shown for transparency, not charged)
         </div>";
+    }
+
+    /**
+     * Build a single section for closeout details page.
+     *
+     * @param string      $title            Section title.
+     * @param string      $status_badge     Badge text (e.g., "PAID", "PARTIAL").
+     * @param string|null $status_color     Badge color (hex).
+     * @param array       $tes              Time entries array.
+     * @param float       $billable_hours   Billable hours.
+     * @param float       $non_billable_hours Non-billable hours.
+     * @param float       $hourly_rate      Hourly rate.
+     * @return string HTML string.
+     */
+    private static function buildCloseoutSection(
+        string $title,
+        string $status_badge,
+        ?string $status_color,
+        array $tes,
+        float $billable_hours,
+        float $non_billable_hours,
+        float $hourly_rate
+    ): string {
+        $section_html = "
+        <div style=\"margin-bottom: 20px;\">
+            <div style=\"background: #f3f4f6; padding: 8px 12px; border-radius: 4px 4px 0 0; border-bottom: 2px solid #e5e7eb;\">
+                <strong style=\"font-size: 12px;\">" . esc_html($title) . "</strong>";
+
+        if ($status_badge && $status_color) {
+            $section_html .= " <span style=\"margin-left: 10px; padding: 2px 8px; background: {$status_color}; color: white; font-size: 9px; border-radius: 10px; font-weight: bold;\">{$status_badge}</span>";
+        }
+
+        $section_html .= "
+            </div>
+            <table style=\"width: 100%; border-collapse: collapse; font-size: 10px;\">
+                <thead>
+                    <tr>
+                        <th style=\"padding: 4px 8px; text-align: left; color: #6b7280; border-bottom: 1px solid #e5e7eb; width: 60px;\">Date</th>
+                        <th style=\"padding: 4px 8px; text-align: left; color: #6b7280; border-bottom: 1px solid #e5e7eb;\">Description</th>
+                        <th style=\"padding: 4px 8px; text-align: right; color: #6b7280; border-bottom: 1px solid #e5e7eb; width: 50px;\">Hours</th>
+                    </tr>
+                </thead>
+                <tbody>";
+
+        foreach ($tes as $te) {
+            $te_date = !empty($te['date']) ? date('M j', strtotime($te['date'])) : '';
+            $te_desc = esc_html($te['title'] ?: ($te['description'] ?? ''));
+            $te_hours = number_format($te['hours'] ?? 0, 2);
+            $is_billable = $te['billable'] ?? true;
+            $row_style = !$is_billable ? 'color: #9ca3af; font-style: italic;' : '';
+            $nb_marker = !$is_billable ? ' (NB)' : '';
+
+            $section_html .= "
+                <tr style=\"{$row_style}\">
+                    <td style=\"padding: 4px 8px; border-bottom: 1px solid #f3f4f6;\">{$te_date}</td>
+                    <td style=\"padding: 4px 8px; border-bottom: 1px solid #f3f4f6;\">{$te_desc}{$nb_marker}</td>
+                    <td style=\"padding: 4px 8px; border-bottom: 1px solid #f3f4f6; text-align: right;\">{$te_hours}</td>
+                </tr>";
+        }
+
+        // Section subtotal
+        $section_amount = $billable_hours * $hourly_rate;
+        $hours_display = number_format($billable_hours, 2);
+        if ($non_billable_hours > 0) {
+            $hours_display .= " <span style=\"color: #9ca3af;\">(+" . number_format($non_billable_hours, 2) . " NB)</span>";
+        }
+
+        $section_html .= "
+                <tr style=\"background: #fafafa; font-weight: bold;\">
+                    <td colspan=\"2\" style=\"padding: 6px 8px; text-align: right; font-size: 10px;\">Subtotal: {$hours_display} hrs × \$" . number_format($hourly_rate, 2) . "</td>
+                    <td style=\"padding: 6px 8px; text-align: right; font-size: 10px;\">\$" . number_format($section_amount, 2) . "</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>";
+
+        return $section_html;
     }
 }

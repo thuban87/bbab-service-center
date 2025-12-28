@@ -159,18 +159,30 @@ class MilestoneColumns {
         }
         echo '</select>';
 
+        // Work status filter
+        $work_statuses = ['Not Started', 'In Progress', 'Completed', 'On Hold'];
+        $selected_work_status = isset($_GET['work_status_filter']) ? sanitize_text_field($_GET['work_status_filter']) : '';
+
+        echo '<select name="work_status_filter">';
+        echo '<option value="">All Work Statuses</option>';
+        foreach ($work_statuses as $status) {
+            $selected = selected($selected_work_status, $status, false);
+            echo '<option value="' . esc_attr($status) . '"' . $selected . '>' . esc_html($status) . '</option>';
+        }
+        echo '</select>';
+
         // Payment status filter (calculated status)
-        $statuses = [
+        $payment_statuses = [
             MilestoneService::PAYMENT_PENDING,
             MilestoneService::PAYMENT_INVOICED,
             MilestoneService::PAYMENT_PAID,
         ];
-        $selected_status = isset($_GET['milestone_status_filter']) ? sanitize_text_field($_GET['milestone_status_filter']) : '';
+        $selected_payment = isset($_GET['payment_status_filter']) ? sanitize_text_field($_GET['payment_status_filter']) : '';
 
-        echo '<select name="milestone_status_filter">';
-        echo '<option value="">All Statuses</option>';
-        foreach ($statuses as $status) {
-            $selected = selected($selected_status, $status, false);
+        echo '<select name="payment_status_filter">';
+        echo '<option value="">All Payment Statuses</option>';
+        foreach ($payment_statuses as $status) {
+            $selected = selected($selected_payment, $status, false);
             echo '<option value="' . esc_attr($status) . '"' . $selected . '>' . esc_html($status) . '</option>';
         }
         echo '</select>';
@@ -200,6 +212,14 @@ class MilestoneColumns {
             ];
         }
 
+        // Work status filter
+        if (!empty($_GET['work_status_filter'])) {
+            $meta_query[] = [
+                'key' => 'milestone_status',
+                'value' => sanitize_text_field($_GET['work_status_filter']),
+            ];
+        }
+
         if (!empty($meta_query)) {
             $query->set('meta_query', $meta_query);
         }
@@ -223,11 +243,11 @@ class MilestoneColumns {
             return $posts;
         }
 
-        if (empty($_GET['milestone_status_filter'])) {
+        if (empty($_GET['payment_status_filter'])) {
             return $posts;
         }
 
-        $filter_status = sanitize_text_field($_GET['milestone_status_filter']);
+        $filter_status = sanitize_text_field($_GET['payment_status_filter']);
 
         return array_filter($posts, function ($post) use ($filter_status) {
             $status = MilestoneService::getPaymentStatus($post->ID);

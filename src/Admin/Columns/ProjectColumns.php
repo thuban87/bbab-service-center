@@ -97,10 +97,18 @@ class ProjectColumns {
 
             case 'milestone_count':
                 $milestones = ProjectService::getMilestones($post_id);
-                $count = count($milestones);
-                if ($count > 0) {
+                $total = count($milestones);
+                if ($total > 0) {
+                    // Count completed milestones
+                    $completed = 0;
+                    foreach ($milestones as $ms) {
+                        $work_status = MilestoneService::getWorkStatus($ms->ID);
+                        if ($work_status === 'Completed') {
+                            $completed++;
+                        }
+                    }
                     $url = admin_url('edit.php?post_type=milestone&project_filter=' . $post_id);
-                    echo '<a href="' . esc_url($url) . '">' . $count . '</a>';
+                    echo '<a href="' . esc_url($url) . '">' . $completed . '/' . $total . '</a>';
                 } else {
                     echo '<span style="color: #999;">0</span>';
                 }

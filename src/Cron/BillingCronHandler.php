@@ -241,14 +241,15 @@ class BillingCronHandler {
         update_post_meta($invoice_id, 'amount', $new_amount);
         update_post_meta($invoice_id, 'late_fee_amount', $late_fee_amount);
 
-        // Clear caches
+        // Clear all caches to ensure fresh data for PDF
         clean_post_cache($invoice_id);
         clean_post_cache($line_item_id);
+        wp_cache_flush();
 
         // Regenerate PDF with late fee included
         if (function_exists('bbab_generate_invoice_pdf')) {
-            // Small delay to ensure database commits are complete
-            usleep(500000); // 0.5 seconds
+            // Delay to ensure database commits are complete
+            sleep(1);
 
             $pdf_result = bbab_generate_invoice_pdf($invoice_id);
 
