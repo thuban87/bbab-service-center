@@ -88,12 +88,13 @@ class TimeEntryColumns {
                 break;
 
             case 'description':
-                $description = get_post_meta($post_id, 'description', true);
+                // Show post_title (the descriptive title), not description meta (auto-generated from SR/project)
+                $title = get_the_title($post_id);
                 $max_length = 60;
-                if (strlen($description) > $max_length) {
-                    echo esc_html(substr($description, 0, $max_length)) . '...';
+                if (strlen($title) > $max_length) {
+                    echo esc_html(substr($title, 0, $max_length)) . '...';
                 } else {
-                    echo esc_html($description ?: '(No description)');
+                    echo esc_html($title ?: '(No title)');
                 }
                 break;
 
@@ -389,10 +390,20 @@ class TimeEntryColumns {
         }
 
         echo '<style>
+            /* Column widths - Phase 8.3 adjustments */
             .wp-list-table .column-reference {
                 width: 80px;
             }
             .wp-list-table .column-time_breakdown {
+                width: 100px;
+            }
+            .wp-list-table .column-organization {
+                width: 100px;
+            }
+            .wp-list-table .column-hours {
+                width: 80px;
+            }
+            .wp-list-table .column-work_type {
                 width: 100px;
             }
             .te-reference {

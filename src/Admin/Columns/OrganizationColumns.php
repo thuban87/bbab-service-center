@@ -51,13 +51,18 @@ class OrganizationColumns {
             $new_columns['cb'] = $columns['cb'];
         }
 
-        // Our custom columns (no title - Full Name serves as the linked column)
+        // Our custom columns - Phase 8.3 update
         $new_columns['org_name'] = 'Full Name';
         $new_columns['org_shortcode'] = 'Shortcode';
-        $new_columns['has_looker'] = 'Looker URL';
+        $new_columns['contact_email'] = 'Email';
+        $new_columns['contract_type'] = 'Contract';
+        $new_columns['renewal_date'] = 'Renewal';
+        $new_columns['free_hours'] = 'Free Hrs';
+        $new_columns['hourly_rate'] = 'Rate';
+        $new_columns['active_projects'] = 'Projects';
+        $new_columns['open_srs'] = 'Open SRs';
         $new_columns['report_count'] = 'Reports';
         $new_columns['user_count'] = 'Users';
-        $new_columns['date'] = 'Date';
 
         return $new_columns;
     }
@@ -82,17 +87,69 @@ class OrganizationColumns {
                 echo $code ? '<code class="org-shortcode">' . esc_html($code) . '</code>' : '<span class="no-value">—</span>';
                 break;
 
-            case 'has_looker':
-                $url = get_post_meta($post_id, 'looker_embed_url', true);
-                if (!empty($url)) {
-                    echo '<span class="status-yes">Yes</span>';
+            case 'contact_email':
+                $email = get_post_meta($post_id, 'contact_email', true);
+                if (!empty($email)) {
+                    echo '<a href="mailto:' . esc_attr($email) . '" class="org-email">' . esc_html($email) . '</a>';
                 } else {
-                    echo '<span class="status-no">No</span>';
+                    echo '<span class="no-value">—</span>';
+                }
+                break;
+
+            case 'contract_type':
+                $type = get_post_meta($post_id, 'contract_type', true);
+                echo $type ? esc_html($type) : '<span class="no-value">—</span>';
+                break;
+
+            case 'renewal_date':
+                $date = get_post_meta($post_id, 'contract_renewal_date', true);
+                if (!empty($date) && strtotime($date) !== false) {
+                    $is_soon = strtotime($date) <= strtotime('+30 days');
+                    $style = $is_soon ? 'color: #d63638; font-weight: 500;' : '';
+                    echo '<span style="' . $style . '">' . esc_html(date('M j, Y', strtotime($date))) . '</span>';
+                } else {
+                    echo '<span class="no-value">—</span>';
+                }
+                break;
+
+            case 'free_hours':
+                $hours = get_post_meta($post_id, 'free_hours_limit', true);
+                echo $hours ? esc_html($hours) : '<span class="no-value">—</span>';
+                break;
+
+            case 'hourly_rate':
+                $rate = get_post_meta($post_id, 'hourly_rate', true);
+                echo $rate ? '$' . number_format((float) $rate, 0) : '<span class="no-value">—</span>';
+                break;
+
+            case 'active_projects':
+                $count = self::getActiveProjectCount($post_id);
+                if ($count > 0) {
+                    $url = admin_url('edit.php?post_type=project&org_filter=' . $post_id . '&status_filter=Active');
+                    echo '<a href="' . esc_url($url) . '">' . $count . '</a>';
+                } else {
+                    echo '<span class="no-value">0</span>';
+                }
+                break;
+
+            case 'open_srs':
+                $count = self::getOpenSRCount($post_id);
+                if ($count > 0) {
+                    $url = admin_url('edit.php?post_type=service_request&filter_org=' . $post_id);
+                    echo '<a href="' . esc_url($url) . '" style="color: #d63638; font-weight: 500;">' . $count . '</a>';
+                } else {
+                    echo '<span class="no-value">0</span>';
                 }
                 break;
 
             case 'report_count':
-                echo esc_html((string) self::getReportCount($post_id));
+                $count = self::getReportCount($post_id);
+                if ($count > 0) {
+                    $url = admin_url('edit.php?post_type=monthly_report&filter_org=' . $post_id);
+                    echo '<a href="' . esc_url($url) . '">' . $count . '</a>';
+                } else {
+                    echo '<span class="no-value">0</span>';
+                }
                 break;
 
             case 'user_count':
@@ -134,6 +191,54 @@ class OrganizationColumns {
 
         $count = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM {$wpdb->usermeta} WHERE meta_key = 'organization' AND meta_value = %s",
+            $org_id
+        ));
+
+        return (int) $count;
+    }
+
+    /**
+     * Get count of active projects for an organization.
+     *
+     * @param int $org_id Organization ID.
+     * @return int Active project count.
+     */
+    private static function getActiveProjectCount(int $org_id): int {
+        global $wpdb;
+
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->postmeta} pm
+             JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+             JOIN {$wpdb->postmeta} pm2 ON p.ID = pm2.post_id AND pm2.meta_key = 'project_status'
+             WHERE pm.meta_key = 'organization'
+             AND pm.meta_value = %s
+             AND p.post_type = 'project'
+             AND p.post_status = 'publish'
+             AND pm2.meta_value = 'Active'",
+            $org_id
+        ));
+
+        return (int) $count;
+    }
+
+    /**
+     * Get count of open service requests for an organization.
+     *
+     * @param int $org_id Organization ID.
+     * @return int Open SR count.
+     */
+    private static function getOpenSRCount(int $org_id): int {
+        global $wpdb;
+
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->postmeta} pm
+             JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+             JOIN {$wpdb->postmeta} pm2 ON p.ID = pm2.post_id AND pm2.meta_key = 'request_status'
+             WHERE pm.meta_key = 'organization'
+             AND pm.meta_value = %s
+             AND p.post_type = 'service_request'
+             AND p.post_status = 'publish'
+             AND pm2.meta_value NOT IN ('Completed', 'Cancelled', 'Closed')",
             $org_id
         ));
 
@@ -187,12 +292,18 @@ class OrganizationColumns {
         }
 
         echo '<style>
-            /* Organization columns - balanced widths */
-            .column-org_name { width: 200px; }
-            .column-org_shortcode { width: 100px; }
-            .column-has_looker { width: 100px; text-align: center; }
-            .column-report_count { width: 80px; text-align: center; }
-            .column-user_count { width: 80px; text-align: center; }
+            /* Organization columns - Phase 8.3 update */
+            .column-org_name { width: 180px; }
+            .column-org_shortcode { width: 80px; }
+            .column-contact_email { width: 180px; }
+            .column-contract_type { width: 90px; }
+            .column-renewal_date { width: 90px; }
+            .column-free_hours { width: 60px; text-align: center; }
+            .column-hourly_rate { width: 60px; text-align: right; }
+            .column-active_projects { width: 70px; text-align: center; }
+            .column-open_srs { width: 70px; text-align: center; }
+            .column-report_count { width: 70px; text-align: center; }
+            .column-user_count { width: 60px; text-align: center; }
 
             /* Shortcode styling */
             .org-shortcode {
@@ -202,14 +313,16 @@ class OrganizationColumns {
                 font-size: 12px;
             }
 
-            /* Status indicators */
-            .status-yes {
-                color: #27ae60;
-                font-weight: 500;
+            /* Email styling */
+            .org-email {
+                color: #2271b1;
+                text-decoration: none;
+                font-size: 12px;
             }
-            .status-no {
-                color: #999;
+            .org-email:hover {
+                text-decoration: underline;
             }
+
             .no-value {
                 color: #999;
             }

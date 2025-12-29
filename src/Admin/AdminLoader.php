@@ -19,6 +19,7 @@ use BBAB\ServiceCenter\Admin\Columns\KBColumns;
 use BBAB\ServiceCenter\Admin\Columns\RoadmapColumns;
 use BBAB\ServiceCenter\Admin\Columns\OrganizationColumns;
 use BBAB\ServiceCenter\Admin\Columns\ClientTaskColumns;
+use BBAB\ServiceCenter\Admin\Columns\MonthlyReportColumns;
 use BBAB\ServiceCenter\Admin\RowActions\LogTimeAction;
 use BBAB\ServiceCenter\Admin\RowActions\RoadmapActions;
 use BBAB\ServiceCenter\Admin\RowActions\MonthlyReportActions;
@@ -36,6 +37,7 @@ use BBAB\ServiceCenter\Admin\Metaboxes\RoadmapMetabox;
 use BBAB\ServiceCenter\Admin\GlobalTimerIndicator;
 use BBAB\ServiceCenter\Admin\AdminBarHealth;
 use BBAB\ServiceCenter\Admin\ProjectReportFieldFilter;
+use BBAB\ServiceCenter\Admin\CascadingDropdowns;
 use BBAB\ServiceCenter\Admin\LineItemLinker;
 use BBAB\ServiceCenter\Modules\TimeTracking\TimeEntryService;
 use BBAB\ServiceCenter\Modules\TimeTracking\TimerService;
@@ -170,6 +172,9 @@ class AdminLoader {
         // Initialize Client Task columns and filters (Phase 7.7)
         ClientTaskColumns::register();
 
+        // Initialize Monthly Report columns and filters (Phase 8.3)
+        MonthlyReportColumns::register();
+
         // Initialize Project/Milestone reference metaboxes (Phase 5.1)
         ProjectMilestoneRefColumns::register();
 
@@ -221,13 +226,62 @@ class AdminLoader {
         // Initialize admin bar health indicator (Phase 7 Review)
         AdminBarHealth::register();
 
+        // Initialize cascading dropdown filters (Phase 8.4b)
+        CascadingDropdowns::register();
+
         // Register assets
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
 
         // Admin notices for missing configuration
         add_action('admin_notices', [$this, 'showConfigurationNotices']);
 
+        // Remove SEO columns from our CPTs (Phase 8.3)
+        $this->removeSeoColumns();
+
         Logger::debug('AdminLoader', 'Admin loader initialized');
+    }
+
+    /**
+     * Remove SEO plugin columns from our custom post types.
+     *
+     * Phase 8.3 - Clean up CPT admin screens.
+     * Handles both Rank Math and Yoast SEO.
+     */
+    private function removeSeoColumns(): void {
+        $cpt_list = [
+            'service_request',
+            'time_entry',
+            'project',
+            'milestone',
+            'invoice',
+            'invoice_line_item',
+            'monthly_report',
+            'project_report',
+            'kb_article',
+            'roadmap_item',
+            'client_organization',
+            'client_task',
+        ];
+
+        foreach ($cpt_list as $cpt) {
+            add_filter("manage_{$cpt}_posts_columns", function ($columns) {
+                // Remove Rank Math SEO columns
+                unset($columns['rank_math_seo_details']);
+                unset($columns['rank_math_title']);
+                unset($columns['rank_math_description']);
+                unset($columns['rank_math_schema']);
+
+                // Remove Yoast SEO columns (in case it's ever installed)
+                unset($columns['wpseo-score']);
+                unset($columns['wpseo-score-readability']);
+                unset($columns['wpseo-title']);
+                unset($columns['wpseo-metadesc']);
+                unset($columns['wpseo-focuskw']);
+                unset($columns['wpseo-links']);
+                unset($columns['wpseo-linked']);
+                return $columns;
+            }, 99); // Late priority to run after SEO plugins add them
+        }
     }
 
     /**

@@ -48,6 +48,12 @@ class ClientHealthDashboard {
      * Render the admin page.
      */
     public function renderPage(): void {
+        // Check if viewing a specific organization detail
+        if (isset($_GET['org']) && absint($_GET['org']) > 0) {
+            $this->renderOrgDetailPage(absint($_GET['org']));
+            return;
+        }
+
         // Handle manual run (Section 1 only)
         if (isset($_POST['run_health_check']) && check_admin_referer('bbab_run_health_check')) {
             $start = microtime(true);
@@ -167,9 +173,12 @@ class ClientHealthDashboard {
                     <tbody>
                         <?php foreach ($orgs as $org):
                             $health = Cache::get('health_data_' . $org->ID);
+                            $detail_url = admin_url('tools.php?page=client-health-dashboard&org=' . $org->ID);
                         ?>
-                        <tr>
-                            <td class="bbab-org-name"><?php echo esc_html($org->post_title); ?></td>
+                        <tr class="bbab-clickable-row" data-href="<?php echo esc_url($detail_url); ?>">
+                            <td class="bbab-org-name">
+                                <a href="<?php echo esc_url($detail_url); ?>"><?php echo esc_html($org->post_title); ?></a>
+                            </td>
                             <td><?php echo $this->renderUptimeCell($health); ?></td>
                             <td><?php echo $this->renderSSLCell($health); ?></td>
                             <td><?php echo $this->renderBackupCell($health); ?></td>
@@ -378,10 +387,14 @@ class ClientHealthDashboard {
         ]);
         $user_count = count($assigned_users);
 
+        $detail_url = admin_url('tools.php?page=client-health-dashboard&org=' . $org_id);
+
         ob_start();
         ?>
-        <tr>
-            <td class="bbab-org-name"><?php echo esc_html($org->post_title); ?></td>
+        <tr class="bbab-clickable-row" data-href="<?php echo esc_url($detail_url); ?>">
+            <td class="bbab-org-name">
+                <a href="<?php echo esc_url($detail_url); ?>"><?php echo esc_html($org->post_title); ?></a>
+            </td>
             <td><?php echo $this->checkIcon($site_url); ?></td>
             <td><?php echo $this->checkIcon($ga4_id); ?></td>
             <td><?php echo $this->checkIcon($stripe_id); ?></td>
@@ -710,7 +723,77 @@ class ClientHealthDashboard {
                 display: inline-block;
                 margin-right: 20px;
             }
+            /* Clickable rows */
+            .bbab-clickable-row {
+                cursor: pointer;
+            }
+            .bbab-clickable-row:hover {
+                background: #e8f4fc !important;
+            }
+            .bbab-org-name a {
+                color: #2271b1;
+                text-decoration: none;
+                font-weight: 600;
+            }
+            .bbab-org-name a:hover {
+                text-decoration: underline;
+            }
+            /* Detail page styles */
+            .bbab-detail-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 20px;
+            }
+            .bbab-detail-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+                gap: 20px;
+            }
+            .bbab-detail-card {
+                background: #fff;
+                border: 1px solid #ccd0d4;
+                border-radius: 4px;
+                overflow: hidden;
+            }
+            .bbab-detail-card h3 {
+                background: #f8f9fa;
+                margin: 0;
+                padding: 12px 15px;
+                font-size: 14px;
+                border-bottom: 1px solid #e2e4e7;
+            }
+            .bbab-detail-card-content {
+                padding: 15px;
+            }
+            .bbab-detail-row {
+                display: flex;
+                justify-content: space-between;
+                padding: 8px 0;
+                border-bottom: 1px solid #f0f0f0;
+            }
+            .bbab-detail-row:last-child {
+                border-bottom: none;
+            }
+            .bbab-detail-label {
+                color: #666;
+                font-size: 13px;
+            }
+            .bbab-detail-value {
+                font-weight: 500;
+                text-align: right;
+            }
         </style>
+        <script>
+        jQuery(document).ready(function($) {
+            // Make entire row clickable
+            $('.bbab-clickable-row').on('click', function(e) {
+                // Don't navigate if clicking on a link
+                if ($(e.target).is('a')) return;
+                window.location.href = $(this).data('href');
+            });
+        });
+        </script>
         <?php
     }
 
@@ -825,5 +908,290 @@ class ClientHealthDashboard {
             'message' => $message,
             'results' => $results,
         ]);
+    }
+
+    /**
+     * Render detail page for a single organization.
+     *
+     * @param int $org_id Organization post ID.
+     */
+    private function renderOrgDetailPage(int $org_id): void {
+        $org = get_post($org_id);
+
+        if (!$org || $org->post_type !== 'client_organization') {
+            echo '<div class="wrap"><h1>Organization Not Found</h1><p>Invalid organization ID.</p></div>';
+            return;
+        }
+
+        // Get all org data
+        $site_url = get_post_meta($org_id, 'site_url', true);
+        $ga4_id = get_post_meta($org_id, 'ga4_property_id', true);
+        $stripe_id = get_post_meta($org_id, 'stripe_customer_id', true);
+        $uptime_id = get_post_meta($org_id, 'uptimerobot_monitor_id', true);
+        $backup_folder = get_post_meta($org_id, 'backup_folder_id', true);
+        $backup_match = get_post_meta($org_id, 'backup_filename_match', true);
+        $free_hours = get_post_meta($org_id, 'free_hours_limit', true);
+        $hourly_rate = get_post_meta($org_id, 'hourly_rate', true);
+        $contact_email = get_post_meta($org_id, 'contact_email', true);
+        $contact_phone = get_post_meta($org_id, 'contact_phone', true);
+        $address = get_post_meta($org_id, 'address', true);
+        $city = get_post_meta($org_id, 'city', true);
+        $state = get_post_meta($org_id, 'state', true);
+        $zip = get_post_meta($org_id, 'zip_code', true);
+        $contract_type = get_post_meta($org_id, 'contract_type', true);
+        $renewal_date = get_post_meta($org_id, 'contract_renewal_date', true);
+        $shortcode = get_post_meta($org_id, 'organization_shortcode', true);
+
+        // Get cached health data
+        $health = Cache::get('health_data_' . $org_id);
+
+        // Get analytics cache status
+        $ga4_cache = !empty($ga4_id) ? Cache::get('ga4_data_' . $ga4_id) : null;
+        $psi_cache = !empty($site_url) ? Cache::get('cwv_' . md5($site_url)) : null;
+
+        // Get assigned users
+        $assigned_users = get_users([
+            'meta_key' => 'organization',
+            'meta_value' => $org_id,
+        ]);
+
+        // Count related items
+        $project_count = count(get_posts([
+            'post_type' => 'project',
+            'posts_per_page' => -1,
+            'post_status' => 'publish',
+            'meta_query' => [['key' => 'organization', 'value' => $org_id]],
+            'fields' => 'ids',
+        ]));
+
+        $sr_count = count(get_posts([
+            'post_type' => 'service_request',
+            'posts_per_page' => -1,
+            'post_status' => 'publish',
+            'meta_query' => [['key' => 'organization', 'value' => $org_id]],
+            'fields' => 'ids',
+        ]));
+
+        $invoice_count = count(get_posts([
+            'post_type' => 'invoice',
+            'posts_per_page' => -1,
+            'post_status' => 'publish',
+            'meta_query' => [['key' => 'organization', 'value' => $org_id]],
+            'fields' => 'ids',
+        ]));
+
+        $back_url = admin_url('tools.php?page=client-health-dashboard');
+        $edit_url = get_edit_post_link($org_id);
+
+        $this->renderStyles();
+        ?>
+        <div class="wrap bbab-dashboard-wrap">
+            <div class="bbab-detail-header">
+                <h1>
+                    <a href="<?php echo esc_url($back_url); ?>" style="text-decoration: none; color: #999;">&larr;</a>
+                    <?php echo esc_html($org->post_title); ?>
+                    <?php if ($shortcode): ?>
+                        <span style="font-size: 14px; font-weight: normal; color: #666; margin-left: 10px;">(<?php echo esc_html($shortcode); ?>)</span>
+                    <?php endif; ?>
+                </h1>
+                <div>
+                    <a href="<?php echo esc_url($edit_url); ?>" class="button">Edit Organization</a>
+                    <a href="<?php echo esc_url($back_url); ?>" class="button">Back to Dashboard</a>
+                </div>
+            </div>
+
+            <div class="bbab-detail-grid">
+                <!-- Basic Info Card -->
+                <div class="bbab-detail-card">
+                    <h3>Basic Information</h3>
+                    <div class="bbab-detail-card-content">
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Site URL</span>
+                            <span class="bbab-detail-value">
+                                <?php if ($site_url): ?>
+                                    <a href="<?php echo esc_url($site_url); ?>" target="_blank"><?php echo esc_html($site_url); ?></a>
+                                <?php else: ?>
+                                    <span class="bbab-status-critical">Not set</span>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Contact Email</span>
+                            <span class="bbab-detail-value">
+                                <?php if ($contact_email): ?>
+                                    <a href="mailto:<?php echo esc_attr($contact_email); ?>"><?php echo esc_html($contact_email); ?></a>
+                                <?php else: ?>
+                                    <span class="bbab-status-warning">Not set</span>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Phone</span>
+                            <span class="bbab-detail-value"><?php echo $contact_phone ? esc_html($contact_phone) : '<span class="bbab-status-na">—</span>'; ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Address</span>
+                            <span class="bbab-detail-value" style="text-align: right; max-width: 200px;">
+                                <?php if ($address): ?>
+                                    <?php echo esc_html($address); ?><br>
+                                    <?php echo esc_html("$city, $state $zip"); ?>
+                                <?php else: ?>
+                                    <span class="bbab-status-warning">Not set</span>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Billing Card -->
+                <div class="bbab-detail-card">
+                    <h3>Billing Configuration</h3>
+                    <div class="bbab-detail-card-content">
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Free Hours</span>
+                            <span class="bbab-detail-value"><?php echo $free_hours !== '' ? esc_html($free_hours) . ' hrs' : '<span class="bbab-status-warning">Not set</span>'; ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Hourly Rate</span>
+                            <span class="bbab-detail-value"><?php echo $hourly_rate !== '' ? '$' . esc_html($hourly_rate) : '<span class="bbab-status-warning">Not set</span>'; ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Stripe Customer ID</span>
+                            <span class="bbab-detail-value"><?php echo $stripe_id ? '<span class="bbab-status-good">&#10003; Configured</span>' : '<span class="bbab-status-critical">Not set</span>'; ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Contract Type</span>
+                            <span class="bbab-detail-value"><?php echo $contract_type ? esc_html($contract_type) : '<span class="bbab-status-na">—</span>'; ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Contract Renewal</span>
+                            <span class="bbab-detail-value"><?php echo $this->getContractRenewalHtml($renewal_date); ?></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Integrations Card -->
+                <div class="bbab-detail-card">
+                    <h3>Integrations</h3>
+                    <div class="bbab-detail-card-content">
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">GA4 Property ID</span>
+                            <span class="bbab-detail-value"><?php echo $ga4_id ? '<code>' . esc_html($ga4_id) . '</code>' : '<span class="bbab-status-critical">Not set</span>'; ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">UptimeRobot Monitor ID</span>
+                            <span class="bbab-detail-value"><?php echo $uptime_id ? '<code>' . esc_html($uptime_id) . '</code>' : '<span class="bbab-status-critical">Not set</span>'; ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Backup Folder ID</span>
+                            <span class="bbab-detail-value"><?php echo $backup_folder ? '<span class="bbab-status-good">&#10003; Configured</span>' : '<span class="bbab-status-critical">Not set</span>'; ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Backup Filename Match</span>
+                            <span class="bbab-detail-value"><?php echo $backup_match ? '<code>' . esc_html($backup_match) . '</code>' : '<span class="bbab-status-na">—</span>'; ?></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Health Status Card -->
+                <div class="bbab-detail-card">
+                    <h3>Health Status</h3>
+                    <div class="bbab-detail-card-content">
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Uptime (30 days)</span>
+                            <span class="bbab-detail-value"><?php echo $this->renderUptimeCell($health); ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">SSL Certificate</span>
+                            <span class="bbab-detail-value"><?php echo $this->renderSSLCell($health); ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Last Backup</span>
+                            <span class="bbab-detail-value"><?php echo $this->renderBackupCell($health); ?></span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Health Data Generated</span>
+                            <span class="bbab-detail-value"><?php echo $this->renderCacheTimeCell($health); ?></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Analytics Cache Card -->
+                <div class="bbab-detail-card">
+                    <h3>Analytics Cache</h3>
+                    <div class="bbab-detail-card-content">
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">GA4 Data Last Fetched</span>
+                            <span class="bbab-detail-value">
+                                <?php
+                                if (!$ga4_id) {
+                                    echo '<span class="bbab-status-na">Not configured</span>';
+                                } elseif ($ga4_cache && isset($ga4_cache['fetched_at'])) {
+                                    $hours = (time() - $ga4_cache['fetched_at']) / 3600;
+                                    $class = $hours <= 26 ? 'good' : ($hours <= 48 ? 'warning' : 'critical');
+                                    echo '<span class="bbab-status-' . $class . '">' . round($hours) . ' hours ago</span>';
+                                } else {
+                                    echo '<span class="bbab-status-critical">Never</span>';
+                                }
+                                ?>
+                            </span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">PageSpeed Data Last Fetched</span>
+                            <span class="bbab-detail-value">
+                                <?php
+                                if (!$site_url) {
+                                    echo '<span class="bbab-status-na">Not configured</span>';
+                                } elseif ($psi_cache && isset($psi_cache['fetched_at'])) {
+                                    $hours = (time() - $psi_cache['fetched_at']) / 3600;
+                                    $class = $hours <= 26 ? 'good' : ($hours <= 48 ? 'warning' : 'critical');
+                                    echo '<span class="bbab-status-' . $class . '">' . round($hours) . ' hours ago</span>';
+                                } else {
+                                    echo '<span class="bbab-status-critical">Never</span>';
+                                }
+                                ?>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Summary Card -->
+                <div class="bbab-detail-card">
+                    <h3>Activity Summary</h3>
+                    <div class="bbab-detail-card-content">
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Assigned Users</span>
+                            <span class="bbab-detail-value">
+                                <?php if (count($assigned_users) > 0): ?>
+                                    <span class="bbab-status-good"><?php echo count($assigned_users); ?></span>
+                                    <br><small style="color: #666;"><?php echo esc_html(implode(', ', wp_list_pluck($assigned_users, 'display_name'))); ?></small>
+                                <?php else: ?>
+                                    <span class="bbab-status-critical">None</span>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Total Projects</span>
+                            <span class="bbab-detail-value">
+                                <a href="<?php echo esc_url(admin_url('edit.php?post_type=project&org_filter=' . $org_id)); ?>"><?php echo esc_html($project_count); ?></a>
+                            </span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Total Service Requests</span>
+                            <span class="bbab-detail-value">
+                                <a href="<?php echo esc_url(admin_url('edit.php?post_type=service_request&org_filter=' . $org_id)); ?>"><?php echo esc_html($sr_count); ?></a>
+                            </span>
+                        </div>
+                        <div class="bbab-detail-row">
+                            <span class="bbab-detail-label">Total Invoices</span>
+                            <span class="bbab-detail-value">
+                                <a href="<?php echo esc_url(admin_url('edit.php?post_type=invoice&org_filter=' . $org_id)); ?>"><?php echo esc_html($invoice_count); ?></a>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php
     }
 }

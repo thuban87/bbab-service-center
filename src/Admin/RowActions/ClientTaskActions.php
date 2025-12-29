@@ -26,6 +26,9 @@ class ClientTaskActions {
         // Handle the Mark Complete action
         add_action('admin_action_bbab_complete_client_task', [self::class, 'handleMarkComplete']);
 
+        // Handle the Reopen action
+        add_action('admin_action_bbab_reopen_client_task', [self::class, 'handleReopen']);
+
         // Show success message
         add_action('admin_notices', [self::class, 'showAdminNotices']);
 
@@ -55,6 +58,12 @@ class ClientTaskActions {
                 'bbab_complete_task_' . $post->ID
             );
             $actions['complete'] = '<a href="' . esc_url($complete_url) . '" style="color: #22c55e; font-weight: 500;">Mark Complete</a>';
+        } elseif ($status === 'Completed') {
+            $reopen_url = wp_nonce_url(
+                admin_url('admin.php?action=bbab_reopen_client_task&task_id=' . $post->ID),
+                'bbab_reopen_task_' . $post->ID
+            );
+            $actions['reopen'] = '<a href="' . esc_url($reopen_url) . '" style="color: #f59e0b; font-weight: 500;">Reopen</a>';
         }
 
         return $actions;
@@ -95,6 +104,40 @@ class ClientTaskActions {
     }
 
     /**
+     * Handle the "Reopen" action for completed tasks.
+     */
+    public static function handleReopen(): void {
+        $task_id = isset($_GET['task_id']) ? (int) $_GET['task_id'] : 0;
+
+        if (!$task_id) {
+            wp_die('Invalid task ID');
+        }
+
+        if (!wp_verify_nonce($_GET['_wpnonce'] ?? '', 'bbab_reopen_task_' . $task_id)) {
+            wp_die('Security check failed');
+        }
+
+        if (!current_user_can('edit_post', $task_id)) {
+            wp_die('Permission denied');
+        }
+
+        $task = get_post($task_id);
+        if (!$task || $task->post_type !== 'client_task') {
+            wp_die('Invalid client task');
+        }
+
+        // Update status back to Pending and clear completed date
+        update_post_meta($task_id, 'task_status', 'Pending');
+        delete_post_meta($task_id, 'completed_date');
+
+        Logger::debug('ClientTaskActions', 'Task reopened', ['task_id' => $task_id]);
+
+        // Redirect back to list
+        wp_redirect(admin_url('edit.php?post_type=client_task&task_reopened=1'));
+        exit;
+    }
+
+    /**
      * Show success message after completing a task.
      */
     public static function showAdminNotices(): void {
@@ -105,6 +148,10 @@ class ClientTaskActions {
 
         if (isset($_GET['task_completed']) && $_GET['task_completed'] === '1') {
             echo '<div class="notice notice-success is-dismissible"><p>Task marked as complete.</p></div>';
+        }
+
+        if (isset($_GET['task_reopened']) && $_GET['task_reopened'] === '1') {
+            echo '<div class="notice notice-info is-dismissible"><p>Task reopened and set to Pending.</p></div>';
         }
     }
 

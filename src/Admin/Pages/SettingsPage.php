@@ -7,6 +7,7 @@ use BBAB\ServiceCenter\Utils\Settings;
 use BBAB\ServiceCenter\Utils\Logger;
 use BBAB\ServiceCenter\Modules\TimeTracking\TEReferenceGenerator;
 use BBAB\ServiceCenter\Cron\ForgottenTimerHandler;
+use BBAB\ServiceCenter\Cron\DebugAutoDisable;
 
 /**
  * Plugin Settings Page.
@@ -50,6 +51,8 @@ class SettingsPage {
 
         // AJAX handlers for maintenance tools
         add_action('wp_ajax_bbab_sc_check_forgotten_timers', [$this, 'handleForgottenTimerCheck']);
+        add_action('wp_ajax_bbab_sc_send_test_sr_email', [$this, 'handleTestSREmail']);
+        add_action('wp_ajax_bbab_sc_test_stripe_connection', [$this, 'handleTestStripeConnection']);
     }
 
     /**
@@ -95,6 +98,33 @@ class SettingsPage {
             $existing['service_center_name'] = sanitize_text_field($input['service_center_name']);
         }
 
+        // Debug mode handling (only when saving from General tab)
+        if (isset($input['_tab']) && $input['_tab'] === 'general') {
+            $was_debug_enabled = $existing['debug_mode'] ?? false;
+            $is_debug_enabled = isset($input['debug_mode']) && $input['debug_mode'] === '1';
+
+            $existing['debug_mode'] = $is_debug_enabled;
+
+            // If debug was just enabled, set the timestamp
+            if ($is_debug_enabled && !$was_debug_enabled) {
+                $existing['debug_enabled_at'] = time();
+            }
+
+            // If debug was disabled, clear the timestamp
+            if (!$is_debug_enabled) {
+                $existing['debug_enabled_at'] = 0;
+            }
+
+            // Save auto-disable duration
+            if (isset($input['debug_auto_disable'])) {
+                $valid_durations = ['1hour', '4hours', '24hours', 'never'];
+                $duration = sanitize_text_field($input['debug_auto_disable']);
+                if (in_array($duration, $valid_durations, true)) {
+                    $existing['debug_auto_disable'] = $duration;
+                }
+            }
+        }
+
         // Sanitize Service Request settings
         if (isset($input['sr_form_id'])) {
             $existing['sr_form_id'] = absint($input['sr_form_id']);
@@ -126,13 +156,20 @@ class SettingsPage {
             $existing['forgotten_timer_email'] = sanitize_email($input['forgotten_timer_email']);
         }
 
+        if (isset($input['forgotten_timer_threshold'])) {
+            $threshold = absint($input['forgotten_timer_threshold']);
+            // Clamp between 1 and 24 hours
+            $existing['forgotten_timer_threshold'] = max(1, min(24, $threshold));
+        }
+
         // Sanitize Billing settings
         if (isset($input['zelle_email'])) {
             $existing['zelle_email'] = sanitize_email($input['zelle_email']);
         }
 
         if (isset($input['cc_fee_percentage'])) {
-            $existing['cc_fee_percentage'] = floatval($input['cc_fee_percentage']);
+            // Convert from whole number percentage to decimal (3 -> 0.03)
+            $existing['cc_fee_percentage'] = floatval($input['cc_fee_percentage']) / 100;
         }
 
         if (isset($input['hourly_rate'])) {
@@ -143,8 +180,11 @@ class SettingsPage {
             $existing['pdf_logo_url'] = esc_url_raw($input['pdf_logo_url']);
         }
 
-        // Sanitize Stripe settings
-        $existing['stripe_test_mode'] = isset($input['stripe_test_mode']) && $input['stripe_test_mode'] === '1';
+        // Sanitize Stripe settings (only when saving from Stripe tab)
+        // Checkbox handling: unchecked boxes don't submit, so we only update when on Stripe tab
+        if (isset($input['_tab']) && $input['_tab'] === 'stripe') {
+            $existing['stripe_test_mode'] = isset($input['stripe_test_mode']) && $input['stripe_test_mode'] === '1';
+        }
 
         if (isset($input['stripe_test_publishable_key'])) {
             $existing['stripe_test_publishable_key'] = sanitize_text_field($input['stripe_test_publishable_key']);
@@ -268,6 +308,58 @@ class SettingsPage {
                                class="regular-text">
                         <p class="description">
                             <?php esc_html_e('The name displayed in the admin menu for the client portal (default: "Service Center").', 'bbab-service-center'); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <h2><?php esc_html_e('Debug Mode', 'bbab-service-center'); ?></h2>
+            <p class="description"><?php esc_html_e('Enable debug mode to log detailed information. Auto-disables after the selected duration to prevent accidentally leaving it on.', 'bbab-service-center'); ?></p>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">
+                        <?php esc_html_e('Enable Debug Mode', 'bbab-service-center'); ?>
+                    </th>
+                    <td>
+                        <?php
+                        $debug_enabled = Settings::isDebugMode();
+                        $remaining_time = DebugAutoDisable::getRemainingTime();
+                        $expiry_display = DebugAutoDisable::getExpiryDisplay();
+                        ?>
+                        <label>
+                            <input type="checkbox"
+                                   name="<?php echo esc_attr(self::OPTION_NAME); ?>[debug_mode]"
+                                   value="1"
+                                   <?php checked($debug_enabled); ?>>
+                            <?php esc_html_e('Enable debug logging', 'bbab-service-center'); ?>
+                        </label>
+                        <?php if ($debug_enabled && $remaining_time): ?>
+                            <p class="description" style="color: #b32d2e; margin-top: 8px;">
+                                <strong><?php esc_html_e('Debug mode is ON', 'bbab-service-center'); ?></strong> &mdash;
+                                <?php echo esc_html(sprintf('Auto-disables in %s (at %s)', $remaining_time, $expiry_display)); ?>
+                            </p>
+                        <?php elseif ($debug_enabled): ?>
+                            <p class="description" style="color: #b32d2e; margin-top: 8px;">
+                                <strong><?php esc_html_e('Debug mode is ON', 'bbab-service-center'); ?></strong> &mdash;
+                                <?php esc_html_e('No auto-disable configured', 'bbab-service-center'); ?>
+                            </p>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <label for="debug_auto_disable"><?php esc_html_e('Auto-Disable After', 'bbab-service-center'); ?></label>
+                    </th>
+                    <td>
+                        <select name="<?php echo esc_attr(self::OPTION_NAME); ?>[debug_auto_disable]" id="debug_auto_disable">
+                            <option value="1hour" <?php selected($settings['debug_auto_disable'] ?? '4hours', '1hour'); ?>>1 hour</option>
+                            <option value="4hours" <?php selected($settings['debug_auto_disable'] ?? '4hours', '4hours'); ?>>4 hours (Recommended)</option>
+                            <option value="24hours" <?php selected($settings['debug_auto_disable'] ?? '4hours', '24hours'); ?>>24 hours</option>
+                            <option value="never" <?php selected($settings['debug_auto_disable'] ?? '4hours', 'never'); ?>>Never (not recommended)</option>
+                        </select>
+                        <p class="description">
+                            <?php esc_html_e('Debug mode will automatically turn off after this duration. You\'ll receive an email notification when it disables.', 'bbab-service-center'); ?>
                         </p>
                     </td>
                 </tr>
@@ -464,6 +556,59 @@ class SettingsPage {
                 </tr>
             </table>
 
+            <h2><?php esc_html_e('Test Email', 'bbab-service-center'); ?></h2>
+            <p class="description"><?php esc_html_e('Send a test email using the configured template above. Save your settings first!', 'bbab-service-center'); ?></p>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">
+                        <?php esc_html_e('Send Test Email', 'bbab-service-center'); ?>
+                    </th>
+                    <td>
+                        <button type="button" id="bbab-send-test-sr-email" class="button button-secondary">
+                            <?php esc_html_e('Send Test Email', 'bbab-service-center'); ?>
+                        </button>
+                        <span id="bbab-test-email-status" style="margin-left: 10px;"></span>
+                        <p class="description">
+                            <?php esc_html_e('Sends a test email to the notification address with sample data.', 'bbab-service-center'); ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <script>
+            jQuery(document).ready(function($) {
+                $('#bbab-send-test-sr-email').on('click', function() {
+                    var $btn = $(this);
+                    var $status = $('#bbab-test-email-status');
+
+                    $btn.prop('disabled', true);
+                    $status.html('<span style="color: #666;">Sending...</span>');
+
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'bbab_sc_send_test_sr_email',
+                            nonce: '<?php echo wp_create_nonce('bbab_sc_send_test_sr_email'); ?>'
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                $status.html('<span style="color: #1e8449; font-weight: 500;">' + response.data.message + '</span>');
+                            } else {
+                                $status.html('<span style="color: #b32d2e;">Error: ' + response.data + '</span>');
+                            }
+                            $btn.prop('disabled', false);
+                        },
+                        error: function() {
+                            $status.html('<span style="color: #b32d2e;">Request failed. Check console for details.</span>');
+                            $btn.prop('disabled', false);
+                        }
+                    });
+                });
+            });
+            </script>
+
             <?php submit_button(__('Save Settings', 'bbab-service-center')); ?>
         </form>
         <?php
@@ -492,7 +637,27 @@ class SettingsPage {
                                value="<?php echo esc_attr($settings['forgotten_timer_email'] ?? ''); ?>"
                                class="regular-text">
                         <p class="description">
-                            <?php esc_html_e('Email address to receive alerts when a timer has been running 4+ hours.', 'bbab-service-center'); ?>
+                            <?php esc_html_e('Email address to receive alerts when a timer has been running too long.', 'bbab-service-center'); ?>
+                        </p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="forgotten_timer_threshold"><?php esc_html_e('Alert Threshold (Hours)', 'bbab-service-center'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number"
+                               id="forgotten_timer_threshold"
+                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[forgotten_timer_threshold]"
+                               value="<?php echo esc_attr($settings['forgotten_timer_threshold'] ?? 4); ?>"
+                               class="small-text"
+                               min="1"
+                               max="24"
+                               step="1">
+                        <span><?php esc_html_e('hours', 'bbab-service-center'); ?></span>
+                        <p class="description">
+                            <?php esc_html_e('Send an alert email when a timer has been running for this many hours. Default: 4 hours.', 'bbab-service-center'); ?>
                         </p>
                     </td>
                 </tr>
@@ -536,16 +701,22 @@ class SettingsPage {
                         <label for="cc_fee_percentage"><?php esc_html_e('Credit Card Fee %', 'bbab-service-center'); ?></label>
                     </th>
                     <td>
+                        <?php
+                        // Display as whole number (convert from decimal: 0.03 -> 3)
+                        $cc_fee_decimal = floatval($settings['cc_fee_percentage'] ?? 0.03);
+                        $cc_fee_display = $cc_fee_decimal * 100;
+                        ?>
                         <input type="number"
                                id="cc_fee_percentage"
                                name="<?php echo esc_attr(self::OPTION_NAME); ?>[cc_fee_percentage]"
-                               value="<?php echo esc_attr($settings['cc_fee_percentage'] ?? 0.03); ?>"
+                               value="<?php echo esc_attr($cc_fee_display); ?>"
                                class="small-text"
-                               step="0.001"
+                               step="0.1"
                                min="0"
-                               max="1">
+                               max="100">
+                        <span>%</span>
                         <p class="description">
-                            <?php esc_html_e('Credit card processing fee as decimal (e.g., 0.03 = 3%). Applied to card payments.', 'bbab-service-center'); ?>
+                            <?php esc_html_e('Credit card processing fee percentage (e.g., 3 for 3%). Applied to card payments.', 'bbab-service-center'); ?>
                         </p>
                     </td>
                 </tr>
@@ -752,6 +923,73 @@ class SettingsPage {
                     </td>
                 </tr>
             </table>
+
+            <h2><?php esc_html_e('Test Connection', 'bbab-service-center'); ?></h2>
+            <p class="description"><?php esc_html_e('Verify your Stripe API keys are working correctly. Save your settings first!', 'bbab-service-center'); ?></p>
+
+            <table class="form-table" role="presentation">
+                <tr>
+                    <th scope="row">
+                        <?php esc_html_e('Test Keys', 'bbab-service-center'); ?>
+                    </th>
+                    <td>
+                        <button type="button" id="bbab-test-stripe-test" class="button button-secondary">
+                            <?php esc_html_e('Test Connection (Test Keys)', 'bbab-service-center'); ?>
+                        </button>
+                        <span id="bbab-stripe-test-status" style="margin-left: 10px;"></span>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row">
+                        <?php esc_html_e('Live Keys', 'bbab-service-center'); ?>
+                    </th>
+                    <td>
+                        <button type="button" id="bbab-test-stripe-live" class="button button-secondary">
+                            <?php esc_html_e('Test Connection (Live Keys)', 'bbab-service-center'); ?>
+                        </button>
+                        <span id="bbab-stripe-live-status" style="margin-left: 10px;"></span>
+                    </td>
+                </tr>
+            </table>
+
+            <script>
+            jQuery(document).ready(function($) {
+                function testStripeConnection(mode, $btn, $status) {
+                    $btn.prop('disabled', true);
+                    $status.html('<span style="color: #666;">Testing...</span>');
+
+                    $.ajax({
+                        url: ajaxurl,
+                        type: 'POST',
+                        data: {
+                            action: 'bbab_sc_test_stripe_connection',
+                            nonce: '<?php echo wp_create_nonce('bbab_sc_test_stripe'); ?>',
+                            mode: mode
+                        },
+                        success: function(response) {
+                            if (response.success) {
+                                $status.html('<span style="color: #1e8449; font-weight: 500;">' + response.data.message + '</span>');
+                            } else {
+                                $status.html('<span style="color: #b32d2e;">' + response.data + '</span>');
+                            }
+                            $btn.prop('disabled', false);
+                        },
+                        error: function() {
+                            $status.html('<span style="color: #b32d2e;">Request failed</span>');
+                            $btn.prop('disabled', false);
+                        }
+                    });
+                }
+
+                $('#bbab-test-stripe-test').on('click', function() {
+                    testStripeConnection('test', $(this), $('#bbab-stripe-test-status'));
+                });
+
+                $('#bbab-test-stripe-live').on('click', function() {
+                    testStripeConnection('live', $(this), $('#bbab-stripe-live-status'));
+                });
+            });
+            </script>
 
             <?php submit_button(__('Save Settings', 'bbab-service-center')); ?>
         </form>
@@ -994,5 +1232,123 @@ class SettingsPage {
         $result = ForgottenTimerHandler::manualCheck();
 
         wp_send_json_success($result);
+    }
+
+    /**
+     * Handle AJAX request to send test SR notification email.
+     */
+    public function handleTestSREmail(): void {
+        if (!check_ajax_referer('bbab_sc_send_test_sr_email', 'nonce', false)) {
+            wp_send_json_error('Security check failed');
+            return;
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Permission denied');
+            return;
+        }
+
+        $settings = Settings::getAll();
+
+        $recipient = $settings['sr_notification_email'] ?? '';
+        if (empty($recipient)) {
+            wp_send_json_error('No notification email configured');
+            return;
+        }
+
+        // Sample data for placeholders
+        $placeholders = [
+            '{ref}' => 'SR-0042',
+            '{org_name}' => 'Test Organization',
+            '{user_name}' => 'John Doe',
+            '{user_email}' => 'john@example.com',
+            '{type}' => 'Support Request',
+            '{subject}' => 'Test Service Request Subject',
+            '{description}' => 'This is a test description for the service request email template. It demonstrates how the email will look when a real service request is submitted.',
+            '{admin_link}' => admin_url('edit.php?post_type=service_request'),
+            '{attachments_note}' => '<p><strong>Attachments:</strong> Yes (2 files)</p>',
+        ];
+
+        // Build subject and body
+        $subject = $settings['sr_notification_subject'] ?? 'New Service Request: {ref} from {org_name}';
+        $body = $settings['sr_notification_body'] ?? '';
+
+        // Replace placeholders
+        $subject = str_replace(array_keys($placeholders), array_values($placeholders), $subject);
+        $body = str_replace(array_keys($placeholders), array_values($placeholders), $body);
+
+        // Add test notice to subject
+        $subject = '[TEST] ' . $subject;
+
+        // Send email
+        $headers = ['Content-Type: text/html; charset=UTF-8'];
+        $sent = wp_mail($recipient, $subject, $body, $headers);
+
+        if ($sent) {
+            wp_send_json_success([
+                'message' => 'Test email sent to ' . $recipient,
+            ]);
+        } else {
+            wp_send_json_error('Failed to send email. Check your mail configuration.');
+        }
+    }
+
+    /**
+     * Handle AJAX request to test Stripe connection.
+     */
+    public function handleTestStripeConnection(): void {
+        if (!check_ajax_referer('bbab_sc_test_stripe', 'nonce', false)) {
+            wp_send_json_error('Security check failed');
+            return;
+        }
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Permission denied');
+            return;
+        }
+
+        $mode = isset($_POST['mode']) ? sanitize_text_field($_POST['mode']) : 'test';
+        $settings = Settings::getAll();
+
+        // Get the appropriate keys based on mode
+        if ($mode === 'live') {
+            $secret_key = $settings['stripe_live_secret_key'] ?? '';
+            $mode_label = 'Live';
+        } else {
+            $secret_key = $settings['stripe_test_secret_key'] ?? '';
+            $mode_label = 'Test';
+        }
+
+        if (empty($secret_key)) {
+            wp_send_json_error("No {$mode_label} secret key configured");
+            return;
+        }
+
+        // Test the connection by fetching account info
+        $response = wp_remote_get('https://api.stripe.com/v1/account', [
+            'headers' => [
+                'Authorization' => 'Bearer ' . $secret_key,
+            ],
+            'timeout' => 15,
+        ]);
+
+        if (is_wp_error($response)) {
+            wp_send_json_error('Connection failed: ' . $response->get_error_message());
+            return;
+        }
+
+        $code = wp_remote_retrieve_response_code($response);
+        $body = json_decode(wp_remote_retrieve_body($response), true);
+
+        if ($code === 200 && isset($body['id'])) {
+            $account_name = $body['business_profile']['name'] ?? $body['id'];
+            wp_send_json_success([
+                'message' => "Connected! Account: {$account_name}",
+            ]);
+        } elseif (isset($body['error']['message'])) {
+            wp_send_json_error('Stripe error: ' . $body['error']['message']);
+        } else {
+            wp_send_json_error("Connection failed (HTTP {$code})");
+        }
     }
 }

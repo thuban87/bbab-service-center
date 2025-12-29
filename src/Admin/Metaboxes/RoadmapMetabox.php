@@ -20,10 +20,64 @@ class RoadmapMetabox {
      */
     public static function register(): void {
         add_action('add_meta_boxes', [self::class, 'registerMetaboxes']);
+        add_action('add_meta_boxes', [self::class, 'movePodsMetaboxToNormal'], 999);
         add_action('admin_head', [self::class, 'renderStyles']);
 
         Logger::debug('RoadmapMetabox', 'Registered roadmap metabox hooks');
     }
+
+    /**
+     * Move Pods metabox from side to normal position.
+     *
+     * Phase 8.3 fix - Properly move the Pods "More Fields" metabox.
+     */
+    public static function movePodsMetaboxToNormal(): void {
+        global $wp_meta_boxes;
+
+        $screen = get_current_screen();
+        if (!$screen || $screen->post_type !== 'roadmap_item') {
+            return;
+        }
+
+        $post_type = 'roadmap_item';
+
+        // Check if the metaboxes array exists for this post type
+        if (!isset($wp_meta_boxes[$post_type])) {
+            return;
+        }
+
+        // Look for Pods metaboxes in the side column
+        $contexts_to_check = ['side'];
+        $priorities_to_check = ['high', 'core', 'default', 'low'];
+
+        foreach ($contexts_to_check as $context) {
+            foreach ($priorities_to_check as $priority) {
+                if (!isset($wp_meta_boxes[$post_type][$context][$priority])) {
+                    continue;
+                }
+
+                foreach ($wp_meta_boxes[$post_type][$context][$priority] as $id => $metabox) {
+                    // Check if this is a Pods metabox (starts with 'pods-meta-')
+                    if (strpos($id, 'pods-meta-') === 0) {
+                        // Remove from side
+                        unset($wp_meta_boxes[$post_type][$context][$priority][$id]);
+
+                        // Add to normal with high priority
+                        if (!isset($wp_meta_boxes[$post_type]['normal']['high'])) {
+                            $wp_meta_boxes[$post_type]['normal']['high'] = [];
+                        }
+
+                        // Add at the beginning of normal/high
+                        $wp_meta_boxes[$post_type]['normal']['high'] =
+                            [$id => $metabox] + $wp_meta_boxes[$post_type]['normal']['high'];
+
+                        Logger::debug('RoadmapMetabox', 'Moved Pods metabox to normal position', ['id' => $id]);
+                    }
+                }
+            }
+        }
+    }
+
 
     /**
      * Register the metaboxes.

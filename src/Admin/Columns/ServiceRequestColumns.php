@@ -78,7 +78,12 @@ class ServiceRequestColumns {
         switch ($column) {
             case 'reference':
                 $ref = get_post_meta($post_id, 'reference_number', true);
-                echo esc_html($ref);
+                if ($ref) {
+                    $edit_url = get_edit_post_link($post_id);
+                    echo '<a href="' . esc_url($edit_url) . '" class="sr-ref-link">' . esc_html($ref) . '</a>';
+                } else {
+                    echo '—';
+                }
                 break;
 
             case 'subject':
@@ -525,6 +530,17 @@ class ServiceRequestColumns {
             }
             .sr-status-select:hover {
                 border-color: #467FF7;
+            }
+
+            /* Reference number link */
+            .sr-ref-link {
+                font-family: monospace;
+                font-weight: 600;
+                color: #467FF7;
+                text-decoration: none;
+            }
+            .sr-ref-link:hover {
+                text-decoration: underline;
             }
         </style>';
     }

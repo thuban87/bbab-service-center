@@ -41,6 +41,7 @@ class Deactivator {
             'bbab_sc_cleanup_cron',
             'bbab_sc_forgotten_timer_check',
             'bbab_sc_billing_cron',
+            'bbab_sc_debug_auto_disable',
         ];
 
         foreach ($cron_hooks as $hook) {

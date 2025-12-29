@@ -23,7 +23,10 @@ class InvoiceReferenceGenerator {
      * Register hooks.
      */
     public static function register(): void {
-        // Generate reference on Pods save (runs after meta is saved)
+        // Early hook - fires when WordPress creates the post (including auto-draft)
+        add_action('wp_insert_post', [self::class, 'handleInsert'], 10, 3);
+
+        // Generate reference on Pods save (backup - runs after meta is saved)
         add_action('pods_api_post_save_pod_item_invoice', [self::class, 'maybeGenerateReference'], 10, 3);
 
         // AJAX handler to preview next invoice number
@@ -33,7 +36,44 @@ class InvoiceReferenceGenerator {
     }
 
     /**
-     * Generate reference number if not already set.
+     * Handle WordPress post insert - generate ref for new invoices immediately.
+     *
+     * This fires when the editor first loads (creating auto-draft), so the
+     * reference number is visible before the user saves.
+     *
+     * @param int      $post_id Post ID.
+     * @param \WP_Post $post    Post object.
+     * @param bool     $update  Whether this is an update.
+     */
+    public static function handleInsert(int $post_id, \WP_Post $post, bool $update): void {
+        // Only for invoices
+        if ($post->post_type !== 'invoice') {
+            return;
+        }
+
+        // Only for new posts, not updates
+        if ($update) {
+            return;
+        }
+
+        // Skip if already has a reference
+        $existing = get_post_meta($post_id, 'invoice_number', true);
+        if (!empty($existing)) {
+            return;
+        }
+
+        // Generate using current date (invoice_date not available yet)
+        $reference = self::generateNumber(current_time('Y-m-d'));
+        update_post_meta($post_id, 'invoice_number', $reference);
+
+        Logger::debug('InvoiceReferenceGenerator', 'Generated invoice reference (on insert)', [
+            'post_id' => $post_id,
+            'reference' => $reference,
+        ]);
+    }
+
+    /**
+     * Generate reference number if not already set (from Pods hook - backup).
      *
      * Uses Pods hook which runs AFTER meta fields are saved.
      *
@@ -62,7 +102,7 @@ class InvoiceReferenceGenerator {
         $reference = self::generateNumber($invoice_date);
         update_post_meta($id, 'invoice_number', $reference);
 
-        Logger::debug('InvoiceReferenceGenerator', 'Generated invoice reference', [
+        Logger::debug('InvoiceReferenceGenerator', 'Generated invoice reference (from Pods)', [
             'post_id' => $id,
             'reference' => $reference,
         ]);

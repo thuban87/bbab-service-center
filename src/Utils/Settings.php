@@ -166,7 +166,7 @@ class Settings {
      * Get all settings that need configuration (still at default 0).
      */
     public static function getMissingConfiguration(): array {
-        $required = ['dashboard_page_id', 'login_page_id', 'sr_form_id'];
+        $required = ['dashboard_page_id', 'sr_form_id'];
         $missing = [];
 
         foreach ($required as $key) {

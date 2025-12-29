@@ -135,11 +135,12 @@ class RecentEntries extends BaseShortcode {
                     <?php foreach ($entries as $entry):
                         $entry_id = $entry->ID;
                         $date = get_post_meta($entry_id, 'entry_date', true);
-                        $description = get_post_meta($entry_id, 'description', true);
+                        // Use post_title (the descriptive work title) instead of description meta
+                        $title = get_the_title($entry_id);
                         $hours = get_post_meta($entry_id, 'hours', true);
                         $billable = get_post_meta($entry_id, 'billable', true);
 
-                        // Format date for display (fix: original used undefined $formatted_date)
+                        // Format date for display
                         $formatted_date = $date ? date('M j, Y', strtotime($date)) : '';
 
                         // Get the reference number from the parent item
@@ -166,11 +167,11 @@ class RecentEntries extends BaseShortcode {
                             }
                         }
 
-                        // Build final description with prefix
-                        if (empty($description)) {
-                            $description = '(Work performed)';
+                        // Build final display text with reference prefix and title
+                        if (empty($title)) {
+                            $title = '(Work performed)';
                         }
-                        $display_description = $ref_prefix . $description;
+                        $display_description = $ref_prefix . $title;
 
                         // Hours display with non-billable badge
                         $hours_display = number_format(floatval($hours), 2);

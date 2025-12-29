@@ -96,10 +96,10 @@ class StripeService {
             ? ['us_bank_account']
             : ['card'];
 
-        // Build success/cancel URLs
-        $invoice_slug = sanitize_title($invoice_number);
-        $success_url = home_url('/invoice/' . $invoice_slug . '/?payment=success');
-        $cancel_url = home_url('/invoice/' . $invoice_slug . '/?payment=cancelled');
+        // Build success/cancel URLs using actual permalink (handles slug variations)
+        $invoice_permalink = get_permalink($invoice_id);
+        $success_url = add_query_arg('payment', 'success', $invoice_permalink);
+        $cancel_url = add_query_arg('payment', 'cancelled', $invoice_permalink);
 
         // Create Stripe Checkout Session via API
         $response = wp_remote_post('https://api.stripe.com/v1/checkout/sessions', [

@@ -57,7 +57,8 @@ class ProjectColumns {
         $new_columns['total_budget'] = 'Budget';
         $new_columns['invoiced'] = 'Invoiced';
         $new_columns['paid'] = 'Paid';
-        $new_columns['start_date'] = 'Start Date';
+        $new_columns['start_date'] = 'Start';
+        $new_columns['target_date'] = 'Target';
 
         return $new_columns;
     }
@@ -73,7 +74,8 @@ class ProjectColumns {
             case 'reference':
                 $ref = get_post_meta($post_id, 'reference_number', true);
                 if ($ref) {
-                    echo '<span class="project-ref">' . esc_html($ref) . '</span>';
+                    $edit_url = get_edit_post_link($post_id);
+                    echo '<a href="' . esc_url($edit_url) . '" class="project-ref">' . esc_html($ref) . '</a>';
                 } else {
                     echo '<span class="no-ref">—</span>';
                 }
@@ -150,6 +152,15 @@ class ProjectColumns {
                     echo '—';
                 }
                 break;
+
+            case 'target_date':
+                $date = get_post_meta($post_id, 'target_completion', true);
+                if (!empty($date) && strtotime($date) !== false && strtotime($date) > 0) {
+                    echo esc_html(date('M j, Y', strtotime($date)));
+                } else {
+                    echo '—';
+                }
+                break;
         }
     }
 
@@ -161,6 +172,7 @@ class ProjectColumns {
      */
     public static function sortableColumns(array $columns): array {
         $columns['start_date'] = 'start_date';
+        $columns['target_date'] = 'target_date';
         $columns['total_budget'] = 'total_budget';
         return $columns;
     }
@@ -254,6 +266,9 @@ class ProjectColumns {
         if ($orderby === 'start_date') {
             $query->set('meta_key', 'start_date');
             $query->set('orderby', 'meta_value');
+        } elseif ($orderby === 'target_date') {
+            $query->set('meta_key', 'target_completion');
+            $query->set('orderby', 'meta_value');
         } elseif ($orderby === 'total_budget') {
             $query->set('meta_key', 'total_budget');
             $query->set('orderby', 'meta_value_num');
@@ -275,6 +290,10 @@ class ProjectColumns {
                 font-family: monospace;
                 font-weight: 600;
                 color: #467FF7;
+                text-decoration: none;
+            }
+            .project-ref:hover {
+                text-decoration: underline;
             }
             .no-ref {
                 color: #999;
@@ -289,6 +308,7 @@ class ProjectColumns {
             .column-invoiced { width: 100px; }
             .column-paid { width: 100px; }
             .column-start_date { width: 100px; }
+            .column-target_date { width: 100px; }
         </style>';
     }
 }

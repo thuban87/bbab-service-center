@@ -28,6 +28,9 @@ class Billing extends BaseShortcode {
             'limit' => 10,
         ]);
 
+        // Calculate outstanding balance from all invoices
+        $balance_data = $this->calculateOutstandingBalance($org_id);
+
         // Get contract renewal date from org
         $org_pod = pods('client_organization', $org_id);
         $renewal_date = $org_pod->field('contract_renewal_date');
@@ -39,6 +42,19 @@ class Billing extends BaseShortcode {
             <div class="bbab-billing-header">
                 <h3>Billing</h3>
             </div>
+
+            <?php if ($balance_data['outstanding'] > 0): ?>
+            <div class="bbab-outstanding-balance">
+                <div class="bbab-balance-amount">
+                    <span class="balance-label">Outstanding Balance</span>
+                    <span class="balance-value">$<?php echo number_format($balance_data['outstanding'], 2); ?></span>
+                </div>
+                <div class="bbab-balance-details">
+                    <span><?php echo $balance_data['pending_count']; ?> unpaid invoice<?php echo $balance_data['pending_count'] !== 1 ? 's' : ''; ?></span>
+                    <a href="/client-dashboard/invoices/" class="bbab-pay-now-link">View &amp; Pay</a>
+                </div>
+            </div>
+            <?php endif; ?>
 
             <div class="bbab-invoices-list">
                 <h4>Recent Invoices</h4>
@@ -254,6 +270,47 @@ class Billing extends BaseShortcode {
                 color: #324A6D;
                 padding: 24px;
             }
+            .bbab-outstanding-balance {
+                background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+                border-radius: 8px;
+                padding: 16px 20px;
+                margin-bottom: 16px;
+                color: white;
+            }
+            .bbab-balance-amount {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 8px;
+            }
+            .bbab-balance-amount .balance-label {
+                font-size: 14px;
+                font-weight: 500;
+                opacity: 0.9;
+            }
+            .bbab-balance-amount .balance-value {
+                font-size: 24px;
+                font-weight: 700;
+            }
+            .bbab-balance-details {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 13px;
+                opacity: 0.9;
+            }
+            .bbab-pay-now-link {
+                color: white !important;
+                background: rgba(255,255,255,0.2);
+                padding: 4px 12px;
+                border-radius: 4px;
+                text-decoration: none;
+                font-weight: 500;
+                transition: background 0.2s;
+            }
+            .bbab-pay-now-link:hover {
+                background: rgba(255,255,255,0.3);
+            }
             .bbab-contract-renewal {
                 margin-top: 20px;
                 padding: 16px;
@@ -281,5 +338,50 @@ class Billing extends BaseShortcode {
         </style>
         <?php
         return ob_get_clean();
+    }
+
+    /**
+     * Calculate outstanding balance from all invoices.
+     *
+     * @param int $org_id Organization ID.
+     * @return array Balance data with 'outstanding' and 'pending_count'.
+     */
+    private function calculateOutstandingBalance(int $org_id): array {
+        $invoices = get_posts([
+            'post_type' => 'invoice',
+            'posts_per_page' => -1,
+            'post_status' => 'publish',
+            'meta_query' => [[
+                'key' => 'organization',
+                'value' => $org_id,
+                'compare' => '=',
+            ]],
+        ]);
+
+        $total_outstanding = 0;
+        $pending_count = 0;
+
+        foreach ($invoices as $invoice) {
+            $status = get_post_meta($invoice->ID, 'invoice_status', true);
+
+            // Skip Draft, Cancelled, and Paid invoices
+            if (in_array($status, ['Draft', 'Cancelled', 'Paid'])) {
+                continue;
+            }
+
+            $amount = floatval(get_post_meta($invoice->ID, 'amount', true));
+            $paid = floatval(get_post_meta($invoice->ID, 'amount_paid', true));
+            $balance = $amount - $paid;
+
+            if ($balance > 0) {
+                $total_outstanding += $balance;
+                $pending_count++;
+            }
+        }
+
+        return [
+            'outstanding' => $total_outstanding,
+            'pending_count' => $pending_count,
+        ];
     }
 }

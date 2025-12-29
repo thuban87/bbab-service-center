@@ -91,7 +91,8 @@ class InvoiceColumns {
             case 'invoice_number':
                 $number = InvoiceService::getNumber($post_id);
                 if ($number) {
-                    echo '<span class="invoice-number">' . esc_html($number) . '</span>';
+                    $edit_url = get_edit_post_link($post_id);
+                    echo '<a href="' . esc_url($edit_url) . '" class="invoice-number">' . esc_html($number) . '</a>';
                 } else {
                     echo '<span class="no-number"><em>Pending</em></span>';
                 }
@@ -653,6 +654,10 @@ class InvoiceColumns {
                 font-family: monospace;
                 font-weight: 600;
                 color: #467FF7;
+                text-decoration: none;
+            }
+            .invoice-number:hover {
+                text-decoration: underline;
             }
             .no-number {
                 color: #999;
