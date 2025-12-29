@@ -10,6 +10,7 @@ use BBAB\ServiceCenter\Modules\Hosting\SSLService;
 use BBAB\ServiceCenter\Modules\Hosting\BackupService;
 use BBAB\ServiceCenter\Cron\ForgottenTimerHandler;
 use BBAB\ServiceCenter\Cron\BillingCronHandler;
+use BBAB\ServiceCenter\Cron\DebugAutoDisable;
 use BBAB\ServiceCenter\Utils\Cache;
 use BBAB\ServiceCenter\Utils\Logger;
 
@@ -46,6 +47,9 @@ class CronLoader {
         // Daily billing cron - marks overdue, applies late fees
         $billing_cron = new BillingCronHandler();
         $billing_cron->register();
+
+        // Debug mode auto-disable - runs hourly to check if debug should be disabled
+        DebugAutoDisable::register();
 
         Logger::debug('CronLoader', 'Cron hooks registered');
     }

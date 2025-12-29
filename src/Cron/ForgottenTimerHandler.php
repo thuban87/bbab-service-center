@@ -17,10 +17,28 @@ use BBAB\ServiceCenter\Utils\Settings;
 class ForgottenTimerHandler {
 
     /**
-     * Threshold in seconds for a timer to be considered "forgotten".
-     * 4 hours = 14400 seconds
+     * Default threshold in hours for a timer to be considered "forgotten".
      */
-    private const FORGOTTEN_THRESHOLD = 4 * 3600;
+    private const DEFAULT_THRESHOLD_HOURS = 4;
+
+    /**
+     * Get the threshold in seconds from settings.
+     *
+     * @return int Threshold in seconds.
+     */
+    private static function getThresholdSeconds(): int {
+        $hours = (int) Settings::get('forgotten_timer_threshold', self::DEFAULT_THRESHOLD_HOURS);
+        return $hours * 3600;
+    }
+
+    /**
+     * Get the threshold in hours from settings.
+     *
+     * @return int Threshold in hours.
+     */
+    public static function getThresholdHours(): int {
+        return (int) Settings::get('forgotten_timer_threshold', self::DEFAULT_THRESHOLD_HOURS);
+    }
 
     /**
      * Check for forgotten timers and send alert if found.
@@ -49,7 +67,7 @@ class ForgottenTimerHandler {
     public static function getForgottenTimers(): array {
         global $wpdb;
 
-        $threshold_time = time() - self::FORGOTTEN_THRESHOLD;
+        $threshold_time = time() - self::getThresholdSeconds();
 
         $results = $wpdb->get_results($wpdb->prepare("
             SELECT p.ID, p.post_title, pm.meta_value as start_timestamp
@@ -84,7 +102,8 @@ class ForgottenTimerHandler {
             $count > 1 ? 's' : ''
         );
 
-        $message = "The following time entry timer(s) have been running for more than 4 hours:\n\n";
+        $threshold_hours = self::getThresholdHours();
+        $message = sprintf("The following time entry timer(s) have been running for more than %d hours:\n\n", $threshold_hours);
 
         foreach ($forgotten as $timer) {
             $elapsed_hours = round((time() - intval($timer->start_timestamp)) / 3600, 1);
@@ -118,9 +137,10 @@ class ForgottenTimerHandler {
         $forgotten = self::getForgottenTimers();
 
         if (empty($forgotten)) {
+            $threshold = self::getThresholdHours();
             return [
                 'success' => true,
-                'message' => 'No forgotten timers found (none running 4+ hours).',
+                'message' => sprintf('No forgotten timers found (none running %d+ hours).', $threshold),
                 'data' => [
                     'count' => 0,
                     'email_sent' => false,

@@ -37,18 +37,7 @@ class ReportPDFButton extends BaseShortcode {
         ]);
 
         $report_id = (int) $atts['report_id'];
-        $pdf_id = get_post_meta($report_id, 'site_health_pdf', true);
-
-        if (empty($pdf_id)) {
-            return '<p style="font-family: Poppins, sans-serif; font-size: 14px; color: #324A6D; font-style: italic;">Site health report PDF not yet available for this period.</p>';
-        }
-
-        // Get the PDF URL - handle both ID and URL storage
-        if (is_numeric($pdf_id)) {
-            $pdf_url = wp_get_attachment_url((int) $pdf_id);
-        } else {
-            $pdf_url = $pdf_id;
-        }
+        $pdf_url = $this->getPdfUrl($report_id);
 
         if (empty($pdf_url)) {
             return '<p style="font-family: Poppins, sans-serif; font-size: 14px; color: #324A6D; font-style: italic;">Site health report PDF not yet available for this period.</p>';
@@ -73,5 +62,77 @@ class ReportPDFButton extends BaseShortcode {
         </a>';
 
         return $output;
+    }
+
+    /**
+     * Get PDF URL from various storage formats.
+     *
+     * Handles Pods file fields and raw post meta with multiple storage patterns.
+     *
+     * @param int $report_id Report post ID.
+     * @return string|null PDF URL or null if not found.
+     */
+    private function getPdfUrl(int $report_id): ?string {
+        $pdf_url = null;
+
+        // Try Pods first (handles file field relationships)
+        if (function_exists('pods')) {
+            $pod = pods('monthly_report', $report_id);
+            if ($pod && $pod->exists()) {
+                $pdf = $pod->field('site_health_pdf');
+
+                if (is_array($pdf)) {
+                    // Pods returns array with guid or ID
+                    if (!empty($pdf['guid'])) {
+                        $pdf_url = $pdf['guid'];
+                    } elseif (!empty($pdf['ID'])) {
+                        $pdf_url = wp_get_attachment_url($pdf['ID']);
+                    }
+                } elseif (is_numeric($pdf)) {
+                    // Attachment ID
+                    $pdf_url = wp_get_attachment_url((int) $pdf);
+                } elseif (is_string($pdf) && !empty($pdf)) {
+                    // URL string or ID as string
+                    if (filter_var($pdf, FILTER_VALIDATE_URL)) {
+                        $pdf_url = $pdf;
+                    } elseif (is_numeric($pdf)) {
+                        $pdf_url = wp_get_attachment_url((int) $pdf);
+                    }
+                }
+            }
+        }
+
+        // Fallback to raw post meta with multiple possible field names
+        if (!$pdf_url) {
+            $meta_keys = ['site_health_pdf', 'report_pdf'];
+
+            foreach ($meta_keys as $key) {
+                $pdf_meta = get_post_meta($report_id, $key, true);
+
+                if (empty($pdf_meta)) {
+                    continue;
+                }
+
+                if (is_numeric($pdf_meta)) {
+                    $pdf_url = wp_get_attachment_url((int) $pdf_meta);
+                } elseif (is_string($pdf_meta) && filter_var($pdf_meta, FILTER_VALIDATE_URL)) {
+                    $pdf_url = $pdf_meta;
+                } elseif (is_array($pdf_meta)) {
+                    if (!empty($pdf_meta['guid'])) {
+                        $pdf_url = $pdf_meta['guid'];
+                    } elseif (!empty($pdf_meta['ID'])) {
+                        $pdf_url = wp_get_attachment_url($pdf_meta['ID']);
+                    } elseif (!empty($pdf_meta['url'])) {
+                        $pdf_url = $pdf_meta['url'];
+                    }
+                }
+
+                if ($pdf_url) {
+                    break;
+                }
+            }
+        }
+
+        return $pdf_url;
     }
 }

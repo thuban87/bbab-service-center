@@ -332,9 +332,9 @@ class InvoiceDetail extends BaseShortcode {
                             </div>
                         </div>
                     </div>
-
-                    <div id="payment-message" class="bbab-payment-message" style="display: none;"></div>
                 </div>
+
+                <div id="payment-message" class="bbab-payment-message" style="display: none;"></div>
 
                 <script>
                 jQuery(document).ready(function($) {
@@ -395,7 +395,14 @@ class InvoiceDetail extends BaseShortcode {
                     // Check for payment status in URL
                     var urlParams = new URLSearchParams(window.location.search);
                     if (urlParams.get('payment') === 'success') {
-                        $('#payment-message').text('Payment successful! Thank you. Your invoice will be updated shortly.').addClass('success').show();
+                        $('#payment-message').html('Payment successful! Thank you.<br><small>Refreshing to update status...</small>').addClass('success').show();
+                        // Hide payment options since payment was just made
+                        $('.bbab-payment-section').hide();
+                        // Refresh after 3 seconds to allow webhook to process
+                        setTimeout(function() {
+                            // Remove query param and refresh
+                            window.location.href = window.location.pathname;
+                        }, 3000);
                     } else if (urlParams.get('payment') === 'cancelled') {
                         $('#payment-message').text('Payment was cancelled.').addClass('error').show();
                     }

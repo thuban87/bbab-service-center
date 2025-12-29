@@ -83,7 +83,11 @@ class Activator {
 
         // Forgotten timer check - runs every 30 minutes
         // First, clean up old snippet events if they exist
-        $old_events = ['bbab_check_forgotten_timers', 'bbab_check_forgotten_timers_v2'];
+        $old_events = [
+            'bbab_check_forgotten_timers',
+            'bbab_check_forgotten_timers_v2',
+            'bbab_analytics_dispatch', // Old snippet analytics cron
+        ];
         foreach ($old_events as $old_event) {
             $timestamp = wp_next_scheduled($old_event);
             if ($timestamp) {
@@ -109,6 +113,11 @@ class Activator {
             $chicago_tz = new \DateTimeZone('America/Chicago');
             $chicago_time = new \DateTime('tomorrow 4:00am', $chicago_tz);
             wp_schedule_event($chicago_time->getTimestamp(), 'daily', 'bbab_sc_billing_cron');
+        }
+
+        // Debug auto-disable cron - runs hourly
+        if (!wp_next_scheduled('bbab_sc_debug_auto_disable')) {
+            wp_schedule_event(time(), 'hourly', 'bbab_sc_debug_auto_disable');
         }
     }
 

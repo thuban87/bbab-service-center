@@ -109,9 +109,15 @@ class TimerService {
         $time_start = wp_date('g:i A', intval($start_timestamp));
         $time_end = wp_date('g:i A', $now);
 
+        // Calculate elapsed hours, rounded UP to nearest quarter hour (0.25)
+        $elapsed_seconds = $now - intval($start_timestamp);
+        $raw_hours = $elapsed_seconds / 3600;
+        $hours = ceil($raw_hours * 4) / 4; // Round up to nearest 0.25
+
         // Update time fields
         update_post_meta($post_id, 'time_start', $time_start);
         update_post_meta($post_id, 'time_end', $time_end);
+        update_post_meta($post_id, 'hours', $hours);
 
         // Stop the timer
         update_post_meta($post_id, 'timer_status', 'stopped');
@@ -120,6 +126,7 @@ class TimerService {
         Logger::debug('TimerService', "Stopped timer for TE {$post_id}", [
             'time_start' => $time_start,
             'time_end' => $time_end,
+            'hours' => $hours,
         ]);
 
         return [
@@ -127,6 +134,7 @@ class TimerService {
             'data' => [
                 'time_start' => $time_start,
                 'time_end' => $time_end,
+                'hours' => $hours,
                 'message' => 'Timer stopped',
             ],
         ];
