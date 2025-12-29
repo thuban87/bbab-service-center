@@ -72,6 +72,8 @@ class PortalAccessControl {
             return;
         }
 
+        error_log('[BBAB-SC] checkAccess: Protected page detected, user_id=' . get_current_user_id() . ', logged_in=' . (is_user_logged_in() ? 'yes' : 'no'));
+
         Logger::debug('PortalAccessControl', 'Protected page access check', [
             'url' => $_SERVER['REQUEST_URI'] ?? '',
             'logged_in' => is_user_logged_in(),
@@ -80,6 +82,7 @@ class PortalAccessControl {
 
         // Admins always have access (including simulation mode)
         if (current_user_can('manage_options')) {
+            error_log('[BBAB-SC] checkAccess: Admin detected, granting access and returning early');
             Logger::debug('PortalAccessControl', 'Admin access granted');
             return;
         }
@@ -105,7 +108,9 @@ class PortalAccessControl {
             Logger::warning('PortalAccessControl', 'Authenticated user has no organization', [
                 'user_id' => get_current_user_id(),
             ]);
+            error_log('[BBAB-SC] About to call renderAccessDenied()');
             $this->renderAccessDenied('Your account is not associated with a client organization. Please contact support.');
+            error_log('[BBAB-SC] After renderAccessDenied() - should not see this if exit works');
             exit;
         }
 
@@ -470,6 +475,22 @@ class PortalAccessControl {
      * Render access denied page.
      */
     private function renderAccessDenied(string $message): void {
+        // Direct error_log for debugging (bypasses debug mode setting)
+        error_log('[BBAB-SC] renderAccessDenied() called with message: ' . $message);
+
+        Logger::debug('PortalAccessControl', 'Rendering access denied page', ['message' => $message]);
+
+        // Clean any output buffers to ensure clean render
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
+        // Set proper headers
+        if (!headers_sent()) {
+            status_header(403);
+            nocache_headers();
+        }
+
         $site_name = get_bloginfo('name');
 
         ?>

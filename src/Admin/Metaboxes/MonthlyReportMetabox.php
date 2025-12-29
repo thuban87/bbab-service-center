@@ -172,11 +172,33 @@ class MonthlyReportMetabox {
         $pdf_url = null;
         $pdf_filename = null;
 
+        // Debug: Log what we're getting (error_log bypasses debug mode)
+        error_log('[BBAB-SC] MonthlyReportMetabox checking PDF for post_id: ' . $post_id);
+
+        // Debug: List all meta keys to find the correct field name
+        $all_meta = get_post_meta($post_id);
+        $meta_keys = array_keys($all_meta);
+        error_log('[BBAB-SC] All meta keys for post ' . $post_id . ': ' . implode(', ', $meta_keys));
+
+        // Check specifically for pdf-related keys
+        foreach ($meta_keys as $key) {
+            if (stripos($key, 'pdf') !== false || stripos($key, 'report') !== false || stripos($key, 'file') !== false || stripos($key, 'attachment') !== false) {
+                error_log('[BBAB-SC] Found relevant meta key: ' . $key . ' = ' . print_r(get_post_meta($post_id, $key, true), true));
+            }
+        }
+
+        Logger::debug('MonthlyReportMetabox', 'Checking PDF for report', ['post_id' => $post_id]);
+
         // Try Pods first (handles most modern attachments)
         if (function_exists('pods')) {
             $pod = pods('monthly_report', $post_id);
             if ($pod) {
-                $pdf = $pod->field('report_pdf');
+                $pdf = $pod->field('site_health_pdf');
+                error_log('[BBAB-SC] Pods field report_pdf returned: ' . print_r($pdf, true));
+                Logger::debug('MonthlyReportMetabox', 'Pods field result', [
+                    'pdf_type' => gettype($pdf),
+                    'pdf_value' => is_array($pdf) ? $pdf : (string) $pdf,
+                ]);
 
                 // Pods can return: array with guid, array with ID, just an ID, or URL string
                 if (is_array($pdf)) {
