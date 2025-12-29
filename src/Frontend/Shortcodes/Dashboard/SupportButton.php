@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace BBAB\ServiceCenter\Frontend\Shortcodes\Dashboard;
 
 use BBAB\ServiceCenter\Frontend\Shortcodes\BaseShortcode;
+use BBAB\ServiceCenter\Utils\Settings;
 
 /**
  * Support Request Button shortcode.
@@ -28,10 +29,12 @@ class SupportButton extends BaseShortcode {
      * Render the support button output.
      */
     protected function output(array $atts, int $org_id): string {
+        $form_url = Settings::get('support_request_form_url', '/support-request-form/');
+
         ob_start();
         ?>
         <div class="dashboard-sr-link">
-            <a href="/support-request-form/" class="sr-form-btn">
+            <a href="<?php echo esc_url($form_url); ?>" class="sr-form-btn">
                 Submit Support Request
             </a>
         </div>

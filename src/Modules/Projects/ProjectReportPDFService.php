@@ -294,10 +294,18 @@ class ProjectReportPDFService {
      * @return string HTML string.
      */
     private static function buildPDFHTML(array $data): string {
-        // Get logo URL from settings or use fallback
+        // Get logo URL from settings, site icon, or theme logo
         $logo_url = Settings::get('pdf_logo_url', '');
         if (empty($logo_url)) {
-            $logo_url = site_url('/wp-content/uploads/2024/07/cropped-ChatGPT-Image-Jun-10-2025-10_32_05-AM.png');
+            // Try site icon first
+            $logo_url = get_site_icon_url(256);
+        }
+        if (empty($logo_url)) {
+            // Try custom logo from theme
+            $custom_logo_id = get_theme_mod('custom_logo');
+            if ($custom_logo_id) {
+                $logo_url = wp_get_attachment_image_url($custom_logo_id, 'medium');
+            }
         }
 
         // Report type colors

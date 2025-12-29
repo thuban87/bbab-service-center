@@ -112,4 +112,110 @@ class Pods {
             return [];
         }
     }
+
+    /**
+     * Get the available options for a Pods field (for dropdowns/lists).
+     *
+     * Fetches the configured options from the Pods field definition,
+     * so you don't have to hardcode status values, etc.
+     *
+     * @param string $pod_name   Pod name (e.g., 'roadmap_item')
+     * @param string $field_name Field name (e.g., 'roadmap_status')
+     * @param array  $fallback   Fallback options if Pods unavailable
+     * @return array Array of option values
+     */
+    public static function getFieldOptions(string $pod_name, string $field_name, array $fallback = []): array {
+        // Check cache first
+        $cache_key = "pods_field_options_{$pod_name}_{$field_name}";
+        $cached = Cache::get($cache_key);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        if (!self::isActive()) {
+            return $fallback;
+        }
+
+        try {
+            // Use pods_api to get field configuration
+            if (!function_exists('pods_api')) {
+                return $fallback;
+            }
+
+            $api = pods_api();
+            $field = $api->load_field([
+                'pod' => $pod_name,
+                'name' => $field_name,
+            ]);
+
+            if (!$field || empty($field['options'])) {
+                return $fallback;
+            }
+
+            $options = [];
+
+            // Handle different field types
+            $field_type = $field['type'] ?? '';
+
+            if ($field_type === 'pick' && isset($field['options']['pick_custom'])) {
+                // Simple Relationship with custom list - parse the newline-separated values
+                $custom_list = $field['options']['pick_custom'] ?? '';
+                if (!empty($custom_list)) {
+                    $lines = explode("\n", $custom_list);
+                    foreach ($lines as $line) {
+                        $line = trim($line);
+                        if (empty($line)) {
+                            continue;
+                        }
+                        // Handle "value|label" format or just "value"
+                        if (strpos($line, '|') !== false) {
+                            $parts = explode('|', $line, 2);
+                            $options[] = trim($parts[0]);
+                        } else {
+                            $options[] = $line;
+                        }
+                    }
+                }
+            } elseif (isset($field['options']['text_options'])) {
+                // Text-based dropdown
+                $text_options = $field['options']['text_options'] ?? '';
+                if (!empty($text_options)) {
+                    $options = array_map('trim', explode("\n", $text_options));
+                    $options = array_filter($options);
+                }
+            }
+
+            // Cache for 1 hour (field definitions rarely change)
+            if (!empty($options)) {
+                Cache::set($cache_key, $options, 3600);
+                return $options;
+            }
+
+            return $fallback;
+
+        } catch (\Exception $e) {
+            Logger::error('Pods', 'Failed to get field options', [
+                'pod' => $pod_name,
+                'field' => $field_name,
+                'error' => $e->getMessage()
+            ]);
+            return $fallback;
+        }
+    }
+
+    /**
+     * Clear the cached field options (call after updating Pods field config).
+     *
+     * @param string|null $pod_name   Pod name (null to clear all)
+     * @param string|null $field_name Field name (null to clear all for pod)
+     */
+    public static function clearFieldOptionsCache(?string $pod_name = null, ?string $field_name = null): void {
+        if ($pod_name && $field_name) {
+            Cache::delete("pods_field_options_{$pod_name}_{$field_name}");
+        } elseif ($pod_name) {
+            Cache::flushPattern("pods_field_options_{$pod_name}_");
+        } else {
+            Cache::flushPattern('pods_field_options_');
+        }
+    }
 }

@@ -29,6 +29,9 @@ class Settings {
         'sr_form_id' => 0,
         'roadmap_form_id' => 1933,
 
+        // Page URLs
+        'support_request_form_url' => '/support-request-form/',
+
         // Pod Names (these are safe to hardcode as they're structural)
         'pod_project' => 'project',
         'pod_milestone' => 'milestone',

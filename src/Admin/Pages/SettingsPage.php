@@ -100,6 +100,14 @@ class SettingsPage {
             $existing['sr_form_id'] = absint($input['sr_form_id']);
         }
 
+        if (isset($input['roadmap_form_id'])) {
+            $existing['roadmap_form_id'] = absint($input['roadmap_form_id']);
+        }
+
+        if (isset($input['support_request_form_url'])) {
+            $existing['support_request_form_url'] = sanitize_text_field($input['support_request_form_url']);
+        }
+
         if (isset($input['sr_notification_email'])) {
             $existing['sr_notification_email'] = sanitize_email($input['sr_notification_email']);
         }
@@ -342,7 +350,7 @@ class SettingsPage {
             <table class="form-table" role="presentation">
                 <tr>
                     <th scope="row">
-                        <label for="sr_form_id"><?php esc_html_e('WPForms Form ID', 'bbab-service-center'); ?></label>
+                        <label for="sr_form_id"><?php esc_html_e('Service Request Form ID', 'bbab-service-center'); ?></label>
                     </th>
                     <td>
                         <input type="number"
@@ -352,7 +360,40 @@ class SettingsPage {
                                class="small-text"
                                min="0">
                         <p class="description">
-                            <?php esc_html_e('The WPForms form ID for Service Request submissions. Find this in WPForms > All Forms.', 'bbab-service-center'); ?>
+                            <?php esc_html_e('WPForms form ID for Service Request submissions. Find this in WPForms > All Forms.', 'bbab-service-center'); ?>
+                        </p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="roadmap_form_id"><?php esc_html_e('Roadmap/Feature Request Form ID', 'bbab-service-center'); ?></label>
+                    </th>
+                    <td>
+                        <input type="number"
+                               id="roadmap_form_id"
+                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[roadmap_form_id]"
+                               value="<?php echo esc_attr($settings['roadmap_form_id'] ?? ''); ?>"
+                               class="small-text"
+                               min="0">
+                        <p class="description">
+                            <?php esc_html_e('WPForms form ID for Feature Request/Roadmap submissions.', 'bbab-service-center'); ?>
+                        </p>
+                    </td>
+                </tr>
+
+                <tr>
+                    <th scope="row">
+                        <label for="support_request_form_url"><?php esc_html_e('Support Request Form URL', 'bbab-service-center'); ?></label>
+                    </th>
+                    <td>
+                        <input type="text"
+                               id="support_request_form_url"
+                               name="<?php echo esc_attr(self::OPTION_NAME); ?>[support_request_form_url]"
+                               value="<?php echo esc_attr($settings['support_request_form_url'] ?? '/support-request-form/'); ?>"
+                               class="regular-text">
+                        <p class="description">
+                            <?php esc_html_e('URL path to the support request form page (used by dashboard button).', 'bbab-service-center'); ?>
                         </p>
                     </td>
                 </tr>

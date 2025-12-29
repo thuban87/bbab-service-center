@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace BBAB\ServiceCenter\Admin\Columns;
 
 use BBAB\ServiceCenter\Utils\Logger;
+use BBAB\ServiceCenter\Utils\Pods;
 
 /**
  * Custom admin columns and filters for Roadmap Items.
@@ -39,9 +40,20 @@ class RoadmapColumns {
     ];
 
     /**
-     * All available statuses.
+     * Fallback statuses (used if Pods unavailable).
      */
-    public const STATUSES = ['Idea', 'ADR In Progress', 'Proposed', 'Approved', 'Declined'];
+    private const FALLBACK_STATUSES = ['Idea', 'ADR In Progress', 'Proposed', 'Approved', 'Declined'];
+
+    /**
+     * Get all available roadmap statuses.
+     *
+     * Fetches from Pods field configuration, falls back to hardcoded list.
+     *
+     * @return array Status values.
+     */
+    public static function getStatuses(): array {
+        return Pods::getFieldOptions('roadmap_item', 'roadmap_status', self::FALLBACK_STATUSES);
+    }
 
     /**
      * Register all hooks.
@@ -255,12 +267,13 @@ class RoadmapColumns {
         }
         echo '</select>';
 
-        // Status filter
+        // Status filter (pulls options from Pods field config)
         $selected_status = isset($_GET['filter_roadmap_status']) ? sanitize_text_field($_GET['filter_roadmap_status']) : '';
+        $statuses = self::getStatuses();
 
         echo '<select name="filter_roadmap_status">';
         echo '<option value="">All Statuses</option>';
-        foreach (self::STATUSES as $status) {
+        foreach ($statuses as $status) {
             $selected = selected($selected_status, $status, false);
             echo '<option value="' . esc_attr($status) . '"' . $selected . '>' . esc_html($status) . '</option>';
         }
